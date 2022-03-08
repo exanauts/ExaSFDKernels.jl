@@ -1,5 +1,5 @@
-name = "ExaSGDKernels"
-uuid = "534fe585-c44d-453e-80ac-27571edd8cbf"
+name = "ExaTronKernels"
+uuid = "dec458bd-9b7b-4867-ad20-20d9a112d608"
 authors = ["Michel Schanen <mschanen@anl.gov>"]
 version = "0.1.0"
 

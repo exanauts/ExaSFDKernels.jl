@@ -1,4 +1,4 @@
-module ExaSGDKernels
+module ExaTronKernels
     using CUDA
     using KernelAbstractions
     const KA = KernelAbstractions

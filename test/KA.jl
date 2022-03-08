@@ -1,6 +1,6 @@
 using AMDGPU
 using CUDA
-using ExaSGDKernels
+using ExaTronKernels
 using KernelAbstractions
 using LinearAlgebra
 using Random
@@ -78,7 +78,7 @@ println("Testing dicf")
     @synchronize
 
     # Test Cholesky factorization.
-    ExaSGDKernels.dicf(n,L,I,J)
+    ExaTronKernels.dicf(n,L,I,J)
     if ty == 1 && tx <= n
         for i in 1:n
             d_out[tx,i] = L[tx,i]
@@ -91,7 +91,7 @@ end
         L = tril(rand(n,n))
         A = L*transpose(L)
         A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
-        tron_A = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_A.vals .= A
 
         d_in = AT{Float64,2}(undef, (n,n))
@@ -100,13 +100,13 @@ end
         wait(dicf_test(device, n)(Val{n}(), d_in, d_out, ndrange=(n,nblk), dependencies=Event(device)))
         h_L = d_out |> Array
 
-        tron_L = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_L.vals .= tron_A.vals
         indr = zeros(Int, n)
         indf = zeros(n)
         list = zeros(n)
         w = zeros(n)
-        ExaSGDKernels.dicf(n, n^2, tron_L, 5, indr, indf, list, w)
+        ExaTronKernels.dicf(n, n^2, tron_L, 5, indr, indf, list, w)
 
         @test norm(tron_A.vals .- tril(h_L)*transpose(tril(h_L))) <= 1e-10
         @test norm(tril(h_L) .- transpose(triu(h_L))) <= 1e-10
@@ -136,7 +136,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dicfs(n, alpha, A, L, wa1, wa2, I, J)
+        ExaTronKernels.dicfs(n, alpha, A, L, wa1, wa2, I, J)
         if tx <= n && ty <= 1
             for i in 1:n
                 d_out[tx,i] = L[tx,i]
@@ -149,8 +149,8 @@ end
         L = tril(rand(n,n))
         A = L*transpose(L)
         A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
-        tron_A = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
-        tron_L = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_A.vals .= A
 
         dA = AT{Float64,2}(undef, (n,n))
@@ -162,7 +162,7 @@ end
         iwa = zeros(Int, 3*n)
         wa1 = zeros(n)
         wa2 = zeros(n)
-        ExaSGDKernels.dicfs(n, n*n, tron_A, tron_L, 5, alpha, iwa, wa1, wa2)
+        ExaTronKernels.dicfs(n, n*n, tron_A, tron_L, 5, alpha, iwa, wa1, wa2)
 
         @test norm(tril(h_L) .- transpose(triu(h_L))) <= 1e-10
         @test norm(tril(tron_L.vals) .- tril(h_L)) <= 1e-9
@@ -174,7 +174,7 @@ end
         copyto!(dA, tron_A.vals)
         wait(dicfs_test(device, n)(Val{n}(),alpha,dA,d_out,ndrange=(n,nblk),dependencies=Event(device)))
         copyto!(h_L, d_out)
-        ExaSGDKernels.dicfs(n, n^2, tron_A, tron_L, 5, alpha, iwa, wa1, wa2)
+        ExaTronKernels.dicfs(n, n^2, tron_A, tron_L, 5, alpha, iwa, wa1, wa2)
 
         @test norm(tril(h_L) .- transpose(triu(h_L))) <= 1e-10
         @test norm(tril(tron_L.vals) .- tril(h_L)) <= 1e-10
@@ -215,7 +215,7 @@ end
             g[tx] = dg[tx]
         end
 
-        alpha = ExaSGDKernels.dcauchy(n,x,xl,xu,A,g,delta,alpha,s,wa,I,J)
+        alpha = ExaTronKernels.dcauchy(n,x,xl,xu,A,g,delta,alpha,s,wa,I,J)
         if ty == 1 && tx <= n
             d_out1[tx] = s[tx]
             d_out2[tx] = alpha
@@ -225,7 +225,7 @@ end
 
     for i=1:itermax
         L = tril(rand(n,n))
-        A = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         A.vals .= L*transpose(L)
         A.vals .= tril(A.vals) .+ (transpose(tril(A.vals)) .- Diagonal(A.vals))
         x = rand(n)
@@ -255,7 +255,7 @@ end
         copyto!(h_s, d_out1)
         copyto!(h_alpha, d_out2)
 
-        alpha = ExaSGDKernels.dcauchy(n, x, xl, xu, A, g, delta, alpha, s, wa)
+        alpha = ExaTronKernels.dcauchy(n, x, xl, xu, A, g, delta, alpha, s, wa)
 
         @test norm(s .- h_s) <= 1e-10
         @test norm(alpha .- h_alpha) <= 1e-10
@@ -294,8 +294,8 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dicf(n,L,I,J)
-        info, iters = ExaSGDKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z,I,J)
+        ExaTronKernels.dicf(n,L,I,J)
+        info, iters = ExaTronKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z,I,J)
         if tx <= n && ty <= 1
             d_out[tx] = w[tx]
             for i in 1:n
@@ -308,8 +308,8 @@ end
     delta = 100.0
     tol = 1e-6
     stol = 1e-6
-    tron_A = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
-    tron_L = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+    tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+    tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
     for i=1:itermax
         L = tril(rand(n,n))
         A = L*transpose(L)
@@ -338,8 +338,8 @@ end
         indr = zeros(Int, n)
         indf = zeros(n)
         list = zeros(n)
-        ExaSGDKernels.dicf(n, n^2, tron_L, 5, indr, indf, list, w)
-        ExaSGDKernels.dtrpcg(n, tron_A, g, delta, tron_L, tol, stol, n, w, p, q, r, t, z)
+        ExaTronKernels.dicf(n, n^2, tron_L, 5, indr, indf, list, w)
+        ExaTronKernels.dtrpcg(n, tron_A, g, delta, tron_L, tol, stol, n, w, p, q, r, t, z)
 
         @test norm(tril(h_L) .- tril(tron_L.vals)) <= tol
         @test norm(h_w .- w) <= tol
@@ -383,7 +383,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dprsrch(n, x, xl, xu, A, g, w, wa1, wa2, I, J)
+        ExaTronKernels.dprsrch(n, x, xl, xu, A, g, w, wa1, wa2, I, J)
         if ty == 1 && tx <= n
             d_out1[tx] = x[tx]
             d_out2[tx] = w[tx]
@@ -394,7 +394,7 @@ end
 
     for i=1:itermax
         L = tril(rand(n,n))
-        A = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         A.vals .= L*transpose(L)
         A.vals .= tril(A.vals) .+ (transpose(tril(A.vals)) .- Diagonal(A.vals))
         x = rand(n)
@@ -425,7 +425,7 @@ end
         copyto!(h_x, d_out1)
         copyto!(h_w, d_out2)
 
-        ExaSGDKernels.dprsrch(n,x,xl,xu,A,g,w,wa1,wa2)
+        ExaTronKernels.dprsrch(n,x,xl,xu,A,g,w,wa1,wa2)
 
         @test norm(x .- h_x) <= 1e-10
         @test norm(w .- h_w) <= 1e-10
@@ -450,7 +450,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.daxpy(n, da, x, 1, y, 1, I, J)
+        ExaTronKernels.daxpy(n, da, x, 1, y, 1, I, J)
         if ty == 1 && tx <= n
             d_out[tx] = y[tx]
         end
@@ -495,7 +495,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dssyax(n, A, z, q, I, J)
+        ExaTronKernels.dssyax(n, A, z, q, I, J)
         if ty == 1 && tx <= n
             d_out[tx] = q[tx]
         end
@@ -541,7 +541,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dmid(n, x, xl, xu, I, J)
+        ExaTronKernels.dmid(n, x, xl, xu, I, J)
         if ty == 1 && tx <= n
             d_out[tx] = x[tx]
         end
@@ -575,7 +575,7 @@ end
         wait(dmid_test(device,n)(Val{n}(),dx,dl,du,d_out,ndrange=(n,nblk),dependencies=Event(device)))
         copyto!(x_out, d_out)
 
-        ExaSGDKernels.dmid(n, x, xl, xu)
+        ExaTronKernels.dmid(n, x, xl, xu)
         @test !(false in (x .== x_out))
     end
 end
@@ -607,7 +607,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dgpstep(n, x, xl, xu, alpha, w, s, I, J)
+        ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s, I, J)
         if ty == 1 && tx <= n
             d_out[tx] = s[tx]
         end
@@ -651,7 +651,7 @@ end
         wait(dgpstep_test(device,n)(Val{n}(),dx,dl,du,alpha,dw,d_out,ndrange=(n,nblk),dependencies=Event(device)))
         copyto!(s_out, d_out)
 
-        ExaSGDKernels.dgpstep(n, x, xl, xu, alpha, w, s)
+        ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s)
         @test !(false in (s .== s_out))
     end
 end
@@ -683,7 +683,7 @@ end
         end
         @synchronize
 
-        nbrpt, brptmin, brptmax = ExaSGDKernels.dbreakpt(n, x, xl, xu, w, I, J)
+        nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w, I, J)
         if ty == 1 && tx <= n
             for i in 1:n
                 d_nbrpt[tx,i] = nbrpt
@@ -720,7 +720,7 @@ end
         copyto!(h_brptmin, d_brptmin)
         copyto!(h_brptmax, d_brptmax)
 
-        nbrpt, brptmin, brptmax = ExaSGDKernels.dbreakpt(n, x, xl, xu, w)
+        nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w)
         @test !(false in (nbrpt .== h_nbrpt))
         @test !(false in (brptmin .== h_brptmin))
         @test !(false in (brptmax .== h_brptmax))
@@ -743,7 +743,7 @@ end
         end
         @synchronize
 
-        v = ExaSGDKernels.dnrm2(n, x, 1, I, J)
+        v = ExaTronKernels.dnrm2(n, x, 1, I, J)
         if tx <= n && ty <= 1
             for i in 1:n
                 d_out[tx,i] = v
@@ -784,7 +784,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.nrm2!(wa, A, n, I, J)
+        ExaTronKernels.nrm2!(wa, A, n, I, J)
         if tx <= n && ty == 1
             d_out[tx] = wa[tx]
         end
@@ -796,9 +796,9 @@ end
         A = L*transpose(L)
         A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
         wa = zeros(n)
-        tron_A = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_A.vals .= A
-        ExaSGDKernels.nrm2!(wa, tron_A, n)
+        ExaTronKernels.nrm2!(wa, tron_A, n)
 
         d_A = AT{Float64,2}(undef, (n,n))
         d_out = AT{Float64}(undef, n)
@@ -829,7 +829,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dcopy(n, x, 1, y, 1, I, J)
+        ExaTronKernels.dcopy(n, x, 1, y, 1, I, J)
 
         if tx <= n && ty <= 1
             d_out[tx] = y[tx]
@@ -869,7 +869,7 @@ end
         end
         @synchronize
 
-        v = ExaSGDKernels.ddot(n, x, 1, y, 1)
+        v = ExaTronKernels.ddot(n, x, 1, y, 1)
 
         if ty <= 1 && tx <= n
             for i in 1:n
@@ -910,7 +910,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dscal(n, da, x, 1, I, J)
+        ExaTronKernels.dscal(n, da, x, 1, I, J)
         if ty <= 1 && tx <= n
             d_out[tx] = x[tx]
         end
@@ -953,7 +953,7 @@ end
         end
         @synchronize
 
-        sigma = ExaSGDKernels.dtrqsol(n, x, p, delta, I, J)
+        sigma = ExaTronKernels.dtrqsol(n, x, p, delta, I, J)
         if ty <= 1 && tx <= n
             for i in 1:n
                 d_out[tx,i] = sigma
@@ -1027,7 +1027,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dspcg(n, delta, rtol, cg_itermax, x, xl, xu,
+        ExaTronKernels.dspcg(n, delta, rtol, cg_itermax, x, xl, xu,
                         A, g, s, B, L, indfree, gfree, w, iwa,
                         wa1, wa2, wa3, wa4, wa5, I, J)
 
@@ -1042,10 +1042,10 @@ end
         L = tril(rand(n,n))
         A = L*transpose(L)
         A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
-        tron_A = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_A.vals .= A
-        tron_B = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
-        tron_L = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_B = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         x = rand(n)
         xl = x .- abs.(rand(n))
         xu = x .+ abs.(rand(n))
@@ -1079,7 +1079,7 @@ end
         h_x = zeros(n)
         copyto!(h_x, d_out)
 
-        ExaSGDKernels.dspcg(n, x, xl, xu, tron_A, g, delta, rtol, s, 5, cg_itermax,
+        ExaTronKernels.dspcg(n, x, xl, xu, tron_A, g, delta, rtol, s, 5, cg_itermax,
                         tron_B, tron_L, indfree, gfree, w, wa, iwa)
 
         @test norm(x .- h_x) <= 1e-10
@@ -1107,7 +1107,7 @@ end
         end
         @synchronize
 
-        v = ExaSGDKernels.dgpnorm(n, x, xl, xu, g, I, J)
+        v = ExaTronKernels.dgpnorm(n, x, xl, xu, g, I, J)
         if ty <= 1 && tx <= n
             d_out[tx] = v
         end
@@ -1136,7 +1136,7 @@ end
         h_v = zeros(n)
         copyto!(h_v, d_out)
 
-        v = ExaSGDKernels.dgpnorm(n, x, xl, xu, g)
+        v = ExaTronKernels.dgpnorm(n, x, xl, xu, g)
         @test norm(h_v .- v) <= 1e-10
     end
 end
@@ -1186,7 +1186,7 @@ end
         end
         @synchronize
 
-        ExaSGDKernels.dtron(N, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
+        ExaTronKernels.dtron(N, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
                         cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
                         disave, ddsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, I, J)
         if ty <= 1 && tx <= N
@@ -1222,10 +1222,10 @@ end
         delta = 2.0*norm(g)
         f = 0.5*transpose(x)*A*x .+ transpose(x)*c
 
-        tron_A = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_A.vals .= A
-        tron_B = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
-        tron_L = ExaSGDKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_B = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+        tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
 
         dx = AT{Float64}(undef, n)
         dxl = AT{Float64}(undef, n)
@@ -1251,7 +1251,7 @@ end
             task_str[i] = UInt8(s)
         end
 
-        ExaSGDKernels.dtron(n, x, xl, xu, f, g, tron_A, frtol, fatol, fmin, cgtol,
+        ExaTronKernels.dtron(n, x, xl, xu, f, g, tron_A, frtol, fatol, fmin, cgtol,
                         cg_itermax, delta, task_str, tron_B, tron_L, xc, s, indfree,
                         isave, dsave, wa, iwa)
         @test norm(x .- h_x) <= 1e-10

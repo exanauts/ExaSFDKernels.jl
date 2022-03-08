@@ -260,7 +260,7 @@ function solveProblem(tron::ExaTronProblem)
         # Call Tron.
 
         if search
-            tron.delta = ExaSGDKernels.dtron(tron.n, tron.x, tron.x_l, tron.x_u,
+            tron.delta = ExaTronKernels.dtron(tron.n, tron.x, tron.x_l, tron.x_u,
                             tron.f, tron.g, tron.A,
                             frtol, fatol,
                             fmin, cgtol, itermax, tron.delta,

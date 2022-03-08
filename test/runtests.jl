@@ -1,7 +1,7 @@
 using Random
 using Test
 
-@testset "ExaSGDKernels" begin
+@testset "ExaTronKernels" begin
     @testset "CUDA.jl" begin
         include("CUDA.jl")
     end
