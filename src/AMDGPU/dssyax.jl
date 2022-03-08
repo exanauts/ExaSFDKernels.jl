@@ -28,7 +28,7 @@
         wa[ty] = sqrt(v)
     end
     =#
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return
 end
@@ -65,7 +65,7 @@ end
         q[ty] = v
     end
     =#
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return
 end
@@ -103,7 +103,7 @@ end
         end
     end
 
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return
 end

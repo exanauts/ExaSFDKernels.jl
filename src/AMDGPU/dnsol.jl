@@ -9,12 +9,12 @@
         if tx == 1 && ty == 1
             r[j] = r[j] / L[j,j]
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
 
         if tx > j && tx <= n && ty == 1
             r[tx] = r[tx] - L[tx,j]*r[j]
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
     end
 
     return

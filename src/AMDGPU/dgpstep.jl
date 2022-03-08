@@ -18,7 +18,7 @@
             end
         end
     end
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return
 end

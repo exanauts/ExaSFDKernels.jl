@@ -35,7 +35,7 @@
         brptmin = zero
         brptmax = zero
     end
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return nbrpt,brptmin,brptmax
 end

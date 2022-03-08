@@ -19,7 +19,7 @@
     else
         sigma = zero
     end
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return sigma
 end

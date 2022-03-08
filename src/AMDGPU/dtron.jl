@@ -53,7 +53,7 @@
         end
     end
 
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     # Search for a lower function value.
 
@@ -200,7 +200,7 @@
         dsave[3] = prered
     end
 
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return delta, task
 end

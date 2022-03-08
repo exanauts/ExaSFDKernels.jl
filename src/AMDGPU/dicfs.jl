@@ -19,7 +19,7 @@
     if tx <= n
         @inbounds wa2[tx] = (wa1[tx] > zero) ? one/sqrt(wa1[tx]) : one
     end
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     # Determine a lower bound for the step.
 
@@ -69,7 +69,7 @@
                 @inbounds L[tx,tx] += alpha
             end
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
 
         # Attempt a Cholesky factorization.
         info = dicf(n, L)
@@ -92,7 +92,7 @@
                         end
                     end
                 end
-                CUDA.sync_threads()
+                AMDGPU.sync_workgroup()
                 return
             end
         else

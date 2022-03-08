@@ -80,7 +80,7 @@
                 wa1[tx] = g[indfree[tx]]
             end
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
         gfnorm = dnrm2(nfree,wa1,1)
 
         # Save the trust region subproblem in the free variables
@@ -106,7 +106,7 @@
                 wa3[tx] = xu[indfree[tx]]
             end
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
 
         dprsrch(nfree,wa1,wa2,wa3,B,gfree,w,wa4,wa5)
 
@@ -119,7 +119,7 @@
                 s[indfree[tx]] += w[tx]
             end
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
 
         # Compute A*(x[k+1] - x[0]) and store in w.
 
@@ -133,7 +133,7 @@
                 gfree[j] = w[indfree[j]] + g[indfree[j]]
             end
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
 
         gfnormf = dnrm2(nfree, gfree, 1)
 

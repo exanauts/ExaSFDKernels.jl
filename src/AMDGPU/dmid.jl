@@ -6,7 +6,7 @@
     if tx <= n && ty == 1
         @inbounds x[tx] = max(xl[tx], min(x[tx], xu[tx]))
     end
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return
 end

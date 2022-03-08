@@ -9,6 +9,6 @@
     @inbounds for i=1:n
         v += dx[i]*dy[i]
     end
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
     return v
 end

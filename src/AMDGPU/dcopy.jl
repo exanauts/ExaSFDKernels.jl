@@ -7,7 +7,7 @@
     if tx <= n && ty == 1
         @inbounds dy[tx] = dx[tx]
     end
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return
 end

@@ -12,10 +12,10 @@
                 end
             end
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
 
         if (L[j,j] <= 0)
-            CUDA.sync_threads()
+            AMDGPU.sync_workgroup()
             return -1
         end
 
@@ -23,7 +23,7 @@
         if tx >= j && tx <= n && ty == 1
             L[tx,j] /= Ljj
         end
-        CUDA.sync_threads()
+        AMDGPU.sync_workgroup()
     end
 
     if tx <= n && ty == 1
@@ -33,7 +33,7 @@
             end
         end
     end
-    CUDA.sync_threads()
+    AMDGPU.sync_workgroup()
 
     return 0
 end
