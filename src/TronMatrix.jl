@@ -31,15 +31,11 @@ function TronDenseMatrix(A::TronDenseMatrix)
     return TronDenseMatrix{typeof(A.vals)}(A.n, A.max_n, copy(A.vals))
 end
 
-function TronDenseMatrix(I::VI, J::VI, V::VD, n) where {VI, VD}
+function TronDenseMatrix(I::VI, J::VI, V::Array, n) where {VI}
     @assert n >= 1
     @assert length(I) == length(J) == length(V)
 
-    if isa(V, Array)
-        A = TronDenseMatrix{Array{Float64, 2}}(n, n, tron_zeros(Array{eltype(V)}, (n, n)))
-    else
-        A = TronDenseMatrix{CuArray{Float64, 2}}(n, n, tron_zeros(CuArray{eltype(V)}, (n, n)))
-    end
+    A = TronDenseMatrix{Array{Float64, 2}}(n, n, tron_zeros(Array{eltype(V)}, (n, n)))
     for i=1:length(I)
         @assert 1 <= I[i] <= n && 1 <= J[i] <= n && I[i] >= J[i]
         @inbounds A.vals[I[i], J[i]] += V[i]
@@ -145,18 +141,6 @@ end
 function Base.fill!(A::TronSparseMatrixCSC, val)
     fill!(A.diag_vals, val)
     fill!(A.tril_vals, val)
-end
-
-@inline function Base.fill!(w::CuDeviceArray{Float64,1}, val::Float64)
-    tx = threadIdx().x
-    ty = threadIdx().y
-
-    if tx <= length(w) && ty == 1
-        @inbounds w[tx] = val
-    end
-    CUDA.sync_threads()
-
-    return
 end
 
 function transfer!(A::TronSparseMatrixCSC, rows, cols, values, nnz)

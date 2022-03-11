@@ -137,8 +137,12 @@ function instantiate_memory!(tron::ExaTronProblem{VI,VD}, n, nele_hess) where {V
     tron.values = tron_zeros(VD, nele_hess)
 end
 
-function createProblem(n::Integer, x_l::AbstractVector{Float64}, x_u::AbstractVector{Float64},
-                       nele_hess::Integer, eval_f_cb, eval_grad_f_cb, eval_h_cb; options...)
+function typedim(a, n::Int)
+    ((typeof(a).name).wrapper){Float64,n}
+end
+
+function createProblem(n::Integer, x_l::AT, x_u::AT,
+                       nele_hess::Integer, eval_f_cb, eval_grad_f_cb, eval_h_cb; options...) where {AT}
     @assert n == length(x_l) == length(x_u)
     @assert typeof(x_l) == typeof(x_u)
 
@@ -155,8 +159,7 @@ function createProblem(n::Integer, x_l::AbstractVector{Float64}, x_u::AbstractVe
     if options_dict["matrix_type"] == :Sparse
         TM = TronSparseMatrixCSC{VI, VD}
     else
-        AT = isa(x_l, Array) ? Array{Float64, 2} : CuArray{Float64, 2}
-        TM = TronDenseMatrix{AT}
+        TM = TronDenseMatrix{typedim(x_l,2)}
     end
 
     tron = ExaTronProblem{VI, VD, TM}()
@@ -180,13 +183,8 @@ function createProblem(n::Integer, x_l::AbstractVector{Float64}, x_u::AbstractVe
         tron.nnz_a = tron.A.nnz
     else
         tron.A = TronDenseMatrix(tron.rows, tron.cols, tron.values, n)
-        if isa(x_l, Array)
-            tron.B = TronDenseMatrix{Array{Float64, 2}}(n)
-            tron.L = TronDenseMatrix{Array{Float64, 2}}(n)
-        else
-            tron.B = TronDenseMatrix{CuArray{Float64, 2}}(n)
-            tron.L = TronDenseMatrix{CuArray{Float64, 2}}(n)
-        end
+        tron.B = TronDenseMatrix{typedim(x_l,2)}(n)
+        tron.L = TronDenseMatrix{typedim(x_l,2)}(n)
         tron.nnz_a = n*n
     end
     tron.status = :NotSolved

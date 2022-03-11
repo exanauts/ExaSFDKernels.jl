@@ -52,6 +52,7 @@ module ExaTronKernels
     include("CUDA/dtrpcg.jl")
     include("CUDA/dspcg.jl")
     include("CUDA/dtron.jl")
+    include("CUDA/TronMatrix.jl")
 
     # KA.jl
     include("KA/architecture.jl")
