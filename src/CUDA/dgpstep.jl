@@ -2,9 +2,8 @@
                          xu::CuDeviceArray{Float64,1},alpha,w::CuDeviceArray{Float64,1},
                          s::CuDeviceArray{Float64,1})
     tx = threadIdx().x
-    ty = threadIdx().y
 
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds begin
             # It might be better to process this using just a single thread,
             # rather than diverging between multiple threads.

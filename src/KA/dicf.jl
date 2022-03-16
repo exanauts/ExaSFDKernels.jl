@@ -1,10 +1,8 @@
 # Left-looking Cholesky
-@inline function dicf(n::Int,L,I,J)
-    tx = J
-    ty = I
+@inline function dicf(n::Int,L,tx)
     @inbounds for j=1:n
         # Apply the pending updates.
-        if tx >= j && tx <= n && ty == 1
+        if tx >= j && tx <= n
             for k=1:j-1
                 L[tx,j] -= L[tx,k] * L[j,k]
             end
@@ -17,13 +15,13 @@
         end
 
         Ljj = sqrt(L[j,j])
-        if tx >= j && tx <= n && ty == 1
+        if tx >= j && tx <= n
             L[tx,j] /= Ljj
         end
         @synchronize
     end
 
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             if tx > j
                 L[j,tx] = L[tx,j]

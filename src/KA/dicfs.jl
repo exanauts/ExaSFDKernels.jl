@@ -2,8 +2,7 @@
                        L,
                        wa1,
                        wa2,
-                       I, J)
-    tx = J
+                       tx)
 
     nbmax = 3
     alpham = 1.0e-3
@@ -14,7 +13,7 @@
     two = 2.0
 
     # Compute the l2 norms of the columns of A.
-    nrm2!(wa1, A, n, I, J)
+    nrm2!(wa1, A, n, tx)
 
     # Compute the scaling matrix D.
     if tx <= n
@@ -83,7 +82,7 @@
         @synchronize
 
         # Attempt a Cholesky factorization.
-        info = dicf(n, L, I, J)
+        info = dicf(n, L, tx)
 
         # If the factorization exists, then test for termination.
         # Otherwise increment the shift.

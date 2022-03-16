@@ -54,15 +54,22 @@ nblk = 4
     function dicf_test(n::Int, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         L = CuDynamicSharedArray(Float64, (n,n))
-        L[tx,ty] = d_in[tx,ty]
+        for i in 1:n
+            L[i,tx] = d_in[i,tx]
+        end
         CUDA.sync_threads()
 
         # Test Cholesky factorization.
         ExaTronKernels.dicf(n,L)
-        d_out[tx,ty] = L[tx,ty]
+
+        if bx == 1
+            for i in 1:n
+                d_out[i,tx] = L[i,tx]
+            end
+        end
         CUDA.sync_threads()
         return
     end
@@ -77,7 +84,7 @@ nblk = 4
         d_in = CuArray{Float64,2}(undef, (n,n))
         d_out = CuArray{Float64,2}(undef, (n,n))
         copyto!(d_in, tron_A.vals)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=(n^2*sizeof(Float64)) dicf_test(n,d_in,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=(n^2*sizeof(Float64)) dicf_test(n,d_in,d_out)
         h_L = zeros(n,n)
         copyto!(h_L, d_out)
 
@@ -171,7 +178,7 @@ end
                             d_out1::CuDeviceArray{Float64},
                             d_out2::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -181,16 +188,16 @@ end
         wa = CuDynamicSharedArray(Float64, n, (5*n)*sizeof(Float64))
         A =  CuDynamicSharedArray(Float64, (n,n), (6*n)*sizeof(Float64))
 
-        A[tx,ty] = dA[tx,ty]
-        if ty == 1
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            g[tx] = dg[tx]
+        for i in 1:n
+            A[i,tx] = dA[i,tx]
         end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        g[tx] = dg[tx]
 
         alpha = ExaTronKernels.dcauchy(n,x,xl,xu,A,g,delta,alpha,s,wa)
-        if ty == 1
+        if bx == 1
             d_out1[tx] = s[tx]
             d_out2[tx] = alpha
         end
@@ -225,7 +232,7 @@ end
         copyto!(du, xu)
         copyto!(dg, g)
         copyto!(dA, A.vals)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((6*n+n^2)*sizeof(Float64)) dcauchy_test(n,dx,dl,du,dA,dg,delta,alpha,d_out1,d_out2)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((6*n+n^2)*sizeof(Float64)) dcauchy_test(n,dx,dl,du,dA,dg,delta,alpha,d_out1,d_out2)
         h_s = zeros(n)
         h_alpha = zeros(n)
         copyto!(h_s, d_out1)
@@ -245,7 +252,7 @@ end
                             d_out_L::CuDeviceArray{Float64},
                             d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         A = CuDynamicSharedArray(Float64, (n,n))
         L = CuDynamicSharedArray(Float64, (n,n), (n^2)*sizeof(Float64))
@@ -258,19 +265,21 @@ end
         t = CuDynamicSharedArray(Float64, n, (2*n^2 + 5*n)*sizeof(Float64))
         z = CuDynamicSharedArray(Float64, n, (2*n^2 + 6*n)*sizeof(Float64))
 
-        A[tx,ty] = d_in[tx,ty]
-        L[tx,ty] = d_in[tx,ty]
-        if ty == 1
-            g[tx] = d_g[tx]
+        for i in 1:n
+            A[i,tx] = d_in[i,tx]
+            L[i,tx] = d_in[i,tx]
         end
+        g[tx] = d_g[tx]
         CUDA.sync_threads()
 
         ExaTronKernels.dicf(n,L)
         info, iters = ExaTronKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z)
-        if ty == 1
+        if bx == 1
             d_out[tx] = w[tx]
+            for i in 1:n
+                d_out_L[i,tx] = L[i,tx]
+            end
         end
-        d_out_L[tx,ty] = L[tx,ty]
         CUDA.sync_threads()
 
         return
@@ -300,7 +309,7 @@ end
         d_out = CuArray{Float64}(undef, n)
         copyto!(d_in, A)
         copyto!(d_g, g)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((2*n^2+7*n)*sizeof(Float64)) dtrpcg_test(n,delta,tol,stol,d_in,d_g,d_out_L,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((2*n^2+7*n)*sizeof(Float64)) dtrpcg_test(n,delta,tol,stol,d_in,d_g,d_out_L,d_out)
         h_w = zeros(n)
         h_L = zeros(n,n)
         copyto!(h_L, d_out_L)
@@ -327,7 +336,7 @@ end
                             d_out1::CuDeviceArray{Float64},
                             d_out2::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -337,19 +346,18 @@ end
         wa1 = CuDynamicSharedArray(Float64, n, (5*n)*sizeof(Float64))
         wa2 = CuDynamicSharedArray(Float64, n, (6*n)*sizeof(Float64))
         A = CuDynamicSharedArray(Float64, (n,n), (7*n)*sizeof(Float64))
-
-        A[tx,ty] = d_A[tx,ty]
-        if ty == 1
-            x[tx] = d_x[tx]
-            xl[tx] = d_xl[tx]
-            xu[tx] = d_xu[tx]
-            g[tx] = d_g[tx]
-            w[tx] = d_w[tx]
+        for i in 1:n
+            A[i,tx] = d_A[i,tx]
         end
+        x[tx] = d_x[tx]
+        xl[tx] = d_xl[tx]
+        xu[tx] = d_xu[tx]
+        g[tx] = d_g[tx]
+        w[tx] = d_w[tx]
         CUDA.sync_threads()
 
         ExaTronKernels.dprsrch(n, x, xl, xu, A, g, w, wa1, wa2)
-        if ty == 1
+        if bx == 1
             d_out1[tx] = x[tx]
             d_out2[tx] = w[tx]
         end
@@ -385,7 +393,7 @@ end
         copyto!(dg, g)
         copyto!(dw, w)
         copyto!(dA, A.vals)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((7*n+n^2)*sizeof(Float64)) dprsrch_test(n,dx,dl,du,dg,dw,dA,d_out1,d_out2)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((7*n+n^2)*sizeof(Float64)) dprsrch_test(n,dx,dl,du,dg,dw,dA,d_out1,d_out2)
         h_x = zeros(n)
         h_w = zeros(n)
         copyto!(h_x, d_out1)
@@ -402,18 +410,16 @@ end
     function daxpy_test(n::Int, da, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         y = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
-        if ty == 1
-            x[tx] = d_in[tx]
-            y[tx] = d_in[tx + n]
-        end
+        x[tx] = d_in[tx]
+        y[tx] = d_in[tx + n]
         CUDA.sync_threads()
 
         ExaTronKernels.daxpy(n, da, x, 1, y, 1)
-        if ty == 1
+        if bx == 1
             d_out[tx] = y[tx]
         end
         CUDA.sync_threads()
@@ -428,7 +434,7 @@ end
         d_in = CuArray{Float64}(undef, 2*n)
         d_out = CuArray{Float64}(undef, n)
         copyto!(d_in, h_in)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((2*n)*sizeof(Float64)) daxpy_test(n,da,d_in,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((2*n)*sizeof(Float64)) daxpy_test(n,da,d_in,d_out)
         copyto!(h_out, d_out)
 
         @test norm(h_out .- (h_in[n+1:2*n] .+ da.*h_in[1:n])) <= 1e-12
@@ -440,19 +446,19 @@ end
                             d_in::CuDeviceArray{Float64},
                             d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         z = CuDynamicSharedArray(Float64, n)
         q = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
         A = CuDynamicSharedArray(Float64, (n,n), (2*n)*sizeof(Float64))
-        A[tx,ty] = d_in[tx,ty]
-        if ty == 1
-            z[tx] = d_z[tx]
+        for i in 1:n
+            A[i,tx] = d_in[i,tx]
         end
+        z[tx] = d_z[tx]
         CUDA.sync_threads()
 
         ExaTronKernels.dssyax(n, A, z, q)
-        if ty == 1
+        if bx == 1
             d_out[tx] = q[tx]
         end
         CUDA.sync_threads()
@@ -469,7 +475,7 @@ end
         d_out = CuArray{Float64}(undef, n)
         copyto!(d_z, z)
         copyto!(d_in, h_in)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((2*n+n^2)*sizeof(Float64)) dssyax_test(n,d_z,d_in,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((2*n+n^2)*sizeof(Float64)) dssyax_test(n,d_z,d_in,d_out)
         copyto!(h_out, d_out)
 
         @test norm(h_out .- h_in*z) <= 1e-12
@@ -482,20 +488,18 @@ end
                         du::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
         xu = CuDynamicSharedArray(Float64, n, (2*n)*sizeof(Float64))
-        if ty == 1
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
         CUDA.sync_threads()
 
         ExaTronKernels.dmid(n, x, xl, xu)
-        if ty == 1
+        if bx == 1
             d_out[tx] = x[tx]
         end
         CUDA.sync_threads()
@@ -526,7 +530,7 @@ end
         copyto!(dx, x)
         copyto!(dl, xl)
         copyto!(du, xu)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((3*n)*sizeof(Float64)) dmid_test(n,dx,dl,du,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((3*n)*sizeof(Float64)) dmid_test(n,dx,dl,du,d_out)
         copyto!(x_out, d_out)
 
         ExaTronKernels.dmid(n, x, xl, xu)
@@ -542,23 +546,21 @@ end
                             dw::CuDeviceArray{Float64},
                             d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
         xu = CuDynamicSharedArray(Float64, n, (2*n)*sizeof(Float64))
         w = CuDynamicSharedArray(Float64, n, (3*n)*sizeof(Float64))
         s = CuDynamicSharedArray(Float64, n, (4*n)*sizeof(Float64))
-        if ty == 1
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            w[tx] = dw[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        w[tx] = dw[tx]
         CUDA.sync_threads()
 
         ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s)
-        if ty == 1
+        if bx == 1
             d_out[tx] = s[tx]
         end
         CUDA.sync_threads()
@@ -599,7 +601,7 @@ end
         copyto!(dl, xl)
         copyto!(du, xu)
         copyto!(dw, w)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((5*n)*sizeof(Float64)) dgpstep_test(n,dx,dl,du,alpha,dw,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((5*n)*sizeof(Float64)) dgpstep_test(n,dx,dl,du,alpha,dw,d_out)
         copyto!(s_out, d_out)
 
         ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s)
@@ -616,24 +618,24 @@ end
                             d_brptmin::CuDeviceArray{Float64},
                             d_brptmax::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
         xu = CuDynamicSharedArray(Float64, n, (2*n)*sizeof(Float64))
         w = CuDynamicSharedArray(Float64, n, (3*n)*sizeof(Float64))
-        if ty == 1
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            w[tx] = dw[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        w[tx] = dw[tx]
         CUDA.sync_threads()
 
         nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w)
-        d_nbrpt[tx,ty] = nbrpt
-        d_brptmin[tx,ty] = brptmin
-        d_brptmax[tx,ty] = brptmax
+        for i in 1:n
+            d_nbrpt[i,tx] = nbrpt
+            d_brptmin[i,tx] = brptmin
+            d_brptmax[i,tx] = brptmax
+        end
         CUDA.sync_threads()
 
         return
@@ -659,7 +661,7 @@ end
         copyto!(dl, xl)
         copyto!(du, xu)
         copyto!(dw, w)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((4*n)*sizeof(Float64)) dbreakpt_test(n,dx,dl,du,dw,d_nbrpt,d_brptmin,d_brptmax)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((4*n)*sizeof(Float64)) dbreakpt_test(n,dx,dl,du,dw,d_nbrpt,d_brptmin,d_brptmax)
         copyto!(h_nbrpt, d_nbrpt)
         copyto!(h_brptmin, d_brptmin)
         copyto!(h_brptmax, d_brptmax)
@@ -675,13 +677,16 @@ end
     function dnrm2_test(n::Int, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         x[tx] = d_in[tx]
         CUDA.sync_threads()
 
         v = ExaTronKernels.dnrm2(n, x, 1)
-        d_out[tx] = v
+        if bx == 1
+            d_out[tx] = v
+        end
         CUDA.sync_threads()
 
         return
@@ -704,15 +709,18 @@ end
 @testset "nrm2" begin
     function nrm2_test(n::Int, d_A::CuDeviceArray{Float64}, d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         wa = CuDynamicSharedArray(Float64, n)
         A = CuDynamicSharedArray(Float64, (n,n), n*sizeof(Float64))
-        A[tx,ty] = d_A[tx,ty]
+
+        for i in 1:n
+            A[i,tx] = d_A[i,tx]
+        end
         CUDA.sync_threads()
 
         ExaTronKernels.nrm2!(wa, A, n)
-        if ty == 1
+        if bx == 1
             d_out[tx] = wa[tx]
         end
         CUDA.sync_threads()
@@ -744,19 +752,17 @@ end
     function dcopy_test(n::Int, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         y = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
 
-        if ty == 1
-            x[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
         CUDA.sync_threads()
 
         ExaTronKernels.dcopy(n, x, 1, y, 1)
 
-        if ty == 1
+        if bx == 1
             d_out[tx] = y[tx]
         end
         CUDA.sync_threads()
@@ -770,7 +776,7 @@ end
         d_in = CuArray{Float64}(undef, n)
         d_out = CuArray{Float64}(undef, n)
         copyto!(d_in, h_in)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((2*n)*sizeof(Float64)) dcopy_test(n,d_in,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((2*n)*sizeof(Float64)) dcopy_test(n,d_in,d_out)
         copyto!(h_out, d_out)
 
         @test !(false in (h_in .== h_out))
@@ -781,18 +787,20 @@ end
     function ddot_test(n::Int, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         y = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
-        if ty == 1
-            x[tx] = d_in[tx]
-            y[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
+        y[tx] = d_in[tx]
         CUDA.sync_threads()
 
         v = ExaTronKernels.ddot(n, x, 1, y, 1)
-        d_out[tx,ty] = v
+        if bx == 1
+            for i in 1:n
+                d_out[i,tx] = v
+            end
+        end
         CUDA.sync_threads()
 
         return
@@ -804,7 +812,7 @@ end
         d_in = CuArray{Float64}(undef, n)
         d_out = CuArray{Float64,2}(undef, (n,n))
         copyto!(d_in, h_in)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((2*n)*sizeof(Float64)) ddot_test(n,d_in,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((2*n)*sizeof(Float64)) ddot_test(n,d_in,d_out)
         copyto!(h_out, d_out)
 
         @test norm(dot(h_in,h_in) .- h_out, 2) <= 1e-10
@@ -816,16 +824,14 @@ end
                         d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
-        if ty == 1
-            x[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
         CUDA.sync_threads()
 
         ExaTronKernels.dscal(n, da, x, 1)
-        if ty == 1
+        if bx == 1
             d_out[tx] = x[tx]
         end
         CUDA.sync_threads()
@@ -840,7 +846,7 @@ end
         d_in = CuArray{Float64}(undef, n)
         d_out = CuArray{Float64}(undef, n)
         copyto!(d_in, h_in)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=(n*sizeof(Float64)) dscal_test(n,da,d_in,d_out)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=(n*sizeof(Float64)) dscal_test(n,da,d_in,d_out)
         copyto!(h_out, d_out)
 
         @test norm(h_out .- (da.*h_in)) <= 1e-12
@@ -858,14 +864,14 @@ end
         x = CuDynamicSharedArray(Float64, n)
         p = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
 
-        if ty == 1
-            x[tx] = d_x[tx]
-            p[tx] = d_p[tx]
-        end
+        x[tx] = d_x[tx]
+        p[tx] = d_p[tx]
         CUDA.sync_threads()
 
         sigma = ExaTronKernels.dtrqsol(n, x, p, delta)
-        d_out[tx,ty] = sigma
+        for i in 1:n
+            d_out[i,tx] = sigma
+        end
         CUDA.sync_threads()
     end
 
@@ -880,7 +886,7 @@ end
         d_out = CuArray{Float64,2}(undef, (n,n))
         copyto!(d_x, x)
         copyto!(d_p, p)
-        CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((2*n)*sizeof(Float64)) dtrqsol_test(n,d_x,d_p,d_out,delta)
+        CUDA.@sync @cuda threads=n blocks=nblk shmem=((2*n)*sizeof(Float64)) dtrqsol_test(n,d_x,d_p,d_out,delta)
 
         @test norm(sigma .- d_out) <= 1e-10
     end
@@ -896,6 +902,7 @@ end
                         ds::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -930,7 +937,9 @@ end
                         A, g, s, B, L, indfree, gfree, w, iwa,
                         wa1, wa2, wa3, wa4, wa5)
 
-        d_out[tx] = x[tx]
+        if bx == 1
+            d_out[tx] = x[tx]
+        end
         CUDA.sync_threads()
 
         return
@@ -987,23 +996,23 @@ end
 @testset "dgpnorm" begin
     function dgpnorm_test(n, dx, dxl, dxu, dg, d_out)
         tx = threadIdx().x
-        ty = threadIdx().y
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
         xu = CuDynamicSharedArray(Float64, n, (2*n)*sizeof(Float64))
         g = CuDynamicSharedArray(Float64, n, (3*n)*sizeof(Float64))
 
-        if ty == 1
-            x[tx] = dx[tx]
-            xl[tx] = dxl[tx]
-            xu[tx] = dxu[tx]
-            g[tx] = dg[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dxl[tx]
+        xu[tx] = dxu[tx]
+        g[tx] = dg[tx]
         CUDA.sync_threads()
 
         v = ExaTronKernels.dgpnorm(n, x, xl, xu, g)
-        d_out[tx] = v
+        if bx == 1
+            d_out[tx] = v
+        end
         CUDA.sync_threads()
 
         return
@@ -1026,7 +1035,7 @@ end
         copyto!(dxu, xu)
         copyto!(dg, g)
 
-        gptime = @timed CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=(4*n*sizeof(Float64)) dgpnorm_test(n, dx, dxl, dxu, dg, d_out)
+        gptime = @timed CUDA.@sync @cuda threads=n blocks=nblk shmem=(4*n*sizeof(Float64)) dgpnorm_test(n, dx, dxl, dxu, dg, d_out)
         h_v = zeros(n)
         copyto!(h_v, d_out)
 
@@ -1043,6 +1052,7 @@ end
                         dxu::CuDeviceArray{Float64}, dA::CuDeviceArray{Float64},
                         dg::CuDeviceArray{Float64}, d_out::CuDeviceArray{Float64})
         tx = threadIdx().x
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -1077,7 +1087,9 @@ end
                         cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
                         disave, ddsave, wa, iwa, wa1, wa2, wa3, wa4, wa5)
 
-        d_out[tx] = x[tx]
+        if bx == 1
+            d_out[tx] = x[tx]
+        end
         CUDA.sync_threads()
 
         return
@@ -1291,6 +1303,7 @@ end
     function driver_kernel_test(n, max_feval, max_minor,
                                 dx, dxl, dxu, dA, dc, d_out)
         tx = threadIdx().x
+        bx = blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -1303,7 +1316,9 @@ end
 
         status, minor_iter = driver_kernel(n, max_feval, max_minor, x, xl, xu, dA, dc)
 
-        d_out[tx] = x[tx]
+        if bx == 1
+            d_out[tx] = x[tx]
+        end
         CUDA.sync_threads()
         return
     end

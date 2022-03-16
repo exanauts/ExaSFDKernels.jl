@@ -1,10 +1,9 @@
 
 @inline function nrm2!(wa, A::CuDeviceArray{Float64,2}, n::Int)
     tx = threadIdx().x
-    ty = threadIdx().y
 
     v = 0.0
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             v += A[j,tx]^2
         end
@@ -37,10 +36,9 @@ end
                         z::CuDeviceArray{Float64,1},
                         q::CuDeviceArray{Float64,1})
     tx = threadIdx().x
-    ty = threadIdx().y
 
     v = 0.0
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             v += A[tx,j]*z[j]
         end
@@ -74,7 +72,6 @@ end
                           A::CuDeviceArray{Float64,2}, indfree::CuDeviceArray{Int,1},
                           iwa::CuDeviceArray{Int,1})
     tx = threadIdx().x
-    ty = threadIdx().y
 
     #=
     if tx == 1 && ty == 1
@@ -90,7 +87,7 @@ end
         end
     end
     =#
-    if tx <= nfree && ty == 1
+    if tx <= nfree
         @inbounds begin
             jfree = indfree[tx]
             B[tx,tx] = A[jfree,jfree]

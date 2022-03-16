@@ -1,11 +1,8 @@
 @inline function dcopy(n::Int,dx,incx::Int,
                        dy,incy::Int,
-                       I, J)
-    tx = J
-    ty = 1
-
+                       tx)
     # Ignore incx and incy for now.
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds dy[tx] = dx[tx]
     end
     @synchronize

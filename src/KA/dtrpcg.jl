@@ -8,7 +8,7 @@
                         r,
                         t,
                         z,
-                        I, J)
+                        tx)
   zero = 0.0
   one = 1.0
 
@@ -18,16 +18,16 @@
   # Initialize the residual t of grad q to -g.
   # Initialize the residual r of grad Q by solving L*r = -g.
   # Note that t = L*r.
-  dcopy(n,g,1,t,1,I,J)
-  dscal(n,-one,t,1,I,J)
-  dcopy(n,t,1,r,1,I,J)
-  dnsol(n, L, r, I, J)
+  dcopy(n,g,1,t,1,tx)
+  dscal(n,-one,t,1,tx)
+  dcopy(n,t,1,r,1,tx)
+  dnsol(n, L, r, tx)
 
   # Initialize the direction p.
-  dcopy(n,r,1,p,1,I,J)
+  dcopy(n,r,1,p,1,tx)
 
   # Initialize rho and the norms of r and t.
-  rho = ddot(n,r,1,r,1,I,J)
+  rho = ddot(n,r,1,r,1,tx)
   rnorm0 = sqrt(rho)
 
   # Exit if g = 0.
@@ -45,30 +45,30 @@
     # Then p'Bp = p'L^{-1}AL^{-T}p = p'L^{-1}Az = p'q.
     # alpha = r'r / p'Bp.
 
-    dcopy(n,p,1,z,1,I,J)
-    dtsol(n, L, z, I, J)
+    dcopy(n,p,1,z,1,tx)
+    dtsol(n, L, z, tx)
 
     # Compute q by solving L*q = A*z and save L*q for
     # use in updating the residual t.
-    dssyax(n, A, z, q, I, J)
-    dcopy(n,q,1,z,1,I,J)
-    dnsol(n, L, q, I, J)
+    dssyax(n, A, z, q, tx)
+    dcopy(n,q,1,z,1,tx)
+    dnsol(n, L, q, tx)
 
     # Compute alpha and determine sigma such that the trust region
     # constraint || w + sigma*p || = delta is satisfied.
-    ptq = ddot(n,p,1,q,1,I,J)
+    ptq = ddot(n,p,1,q,1,tx)
     if ptq > zero
       alpha = rho/ptq
     else
       alpha = zero
     end
-    sigma = dtrqsol(n,w,p,delta,I,J)
+    sigma = dtrqsol(n,w,p,delta,tx)
 
     # Exit if there is negative curvature or if the
     # iterates exit the trust region.
 
     if (ptq <= zero) || (alpha >= sigma)
-      daxpy(n,sigma,p,1,w,1,I,J)
+      daxpy(n,sigma,p,1,w,1,tx)
       if ptq <= zero
         info = 3
       else
@@ -81,15 +81,15 @@
     # Update w and the residuals r and t.
     # Note that t = L*r.
 
-    daxpy(n,alpha,p,1,w,1,I,J)
-    daxpy(n,-alpha,q,1,r,1,I,J)
-    daxpy(n,-alpha,z,1,t,1,I,J)
+    daxpy(n,alpha,p,1,w,1,tx)
+    daxpy(n,-alpha,q,1,r,1,tx)
+    daxpy(n,-alpha,z,1,t,1,tx)
 
     # Exit if the residual convergence test is satisfied.
 
-    rtr = ddot(n,r,1,r,1,I,J)
+    rtr = ddot(n,r,1,r,1,tx)
     rnorm = sqrt(rtr)
-    tnorm = sqrt(ddot(n,t,1,t,1,I,J))
+    tnorm = sqrt(ddot(n,t,1,t,1,tx))
 
     if tnorm <= tol
       info = 1
@@ -103,8 +103,8 @@
 
     # Compute p = r + beta*p and update rho.
     beta = rtr/rho
-    dscal(n,beta,p,1,I,J)
-    daxpy(n,one,r,1,p,1,I,J)
+    dscal(n,beta,p,1,tx)
+    daxpy(n,one,r,1,p,1,tx)
     rho = rtr
   end
 

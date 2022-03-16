@@ -1,6 +1,6 @@
 @inline function ddot(n::Int,dx,incx::Int,
                       dy,incy::Int,
-                      I, J)
+                      tx)
     # Currently, all threads compute the same dot product,
     # hence, no sync_threads() is needed.
     # For very small n, we may want to gauge how much gains

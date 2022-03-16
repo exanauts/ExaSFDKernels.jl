@@ -61,25 +61,20 @@ end
 
 
 @testset "dicf" begin
-println("Testing dicf")
 @kernel function dicf_test(::Val{n}, d_in,
                     d_out) where {n}
-    I = @index(Group, Linear)
-    J = @index(Local, Linear)
-    tx = J
-    ty = I
+    tx = @index(Local, Linear)
+    bx = @index(Group, Linear)
 
     L = @localmem Float64 (n,n)
-    if tx <= n && ty == 1
-        for i in 1:n
-            L[tx,i] = d_in[tx,i]
-        end
+    for i in 1:n
+        L[tx,i] = d_in[tx,i]
     end
     @synchronize
 
     # Test Cholesky factorization.
-    ExaTronKernels.dicf(n,L,I,J)
-    if ty == 1 && tx <= n
+    ExaTronKernels.dicf(n,L,tx)
+    if bx == 1
         for i in 1:n
             d_out[tx,i] = L[tx,i]
         end
@@ -115,29 +110,24 @@ end
 end
 
 @testset "dicfs" begin
-    println("Testing dicfs")
     @kernel function dicfs_test(::Val{n}, alpha::Float64,
                         dA,
                         d_out) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         wa1 = @localmem Float64 (n,)
         wa2 = @localmem Float64 (n,)
         A = @localmem Float64 (n,n)
         L = @localmem Float64 (n,n)
 
-        if tx <= n && ty <= 1
-            for i in 1:n
-                A[tx,i] = dA[tx,i]
-            end
+        for i in 1:n
+            A[tx,i] = dA[tx,i]
         end
         @synchronize
 
-        ExaTronKernels.dicfs(n, alpha, A, L, wa1, wa2, I, J)
-        if tx <= n && ty <= 1
+        ExaTronKernels.dicfs(n, alpha, A, L, wa1, wa2, tx)
+        if bx <= 1
             for i in 1:n
                 d_out[tx,i] = L[tx,i]
             end
@@ -182,7 +172,6 @@ end
 end
 
 @testset "dcauchy" begin
-    println("Testing dcauchy")
     @kernel function dcauchy_test(::Val{n},dx,
                             dl,
                             du,
@@ -193,10 +182,8 @@ end
                             d_out1,
                             d_out2
                             ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         xl = @localmem Float64 (n,)
@@ -205,18 +192,16 @@ end
         s = @localmem Float64 (n,)
         wa = @localmem Float64 (n,)
         A = @localmem Float64 (n,n)
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = dA[tx,i]
-            end
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            g[tx] = dg[tx]
+        for i in 1:n
+            A[tx,i] = dA[tx,i]
         end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        g[tx] = dg[tx]
 
-        alpha = ExaTronKernels.dcauchy(n,x,xl,xu,A,g,delta,alpha,s,wa,I,J)
-        if ty == 1 && tx <= n
+        alpha = ExaTronKernels.dcauchy(n,x,xl,xu,A,g,delta,alpha,s,wa,tx)
+        if bx == 1
             d_out1[tx] = s[tx]
             d_out2[tx] = alpha
         end
@@ -263,17 +248,14 @@ end
 end
 
 @testset "dtrpcg" begin
-    println("Testing dtrpcg")
     @kernel function dtrpcg_test(::Val{n}, delta::Float64, tol::Float64,
                             stol::Float64, d_in,
                             d_g,
                             d_out_L,
                             d_out
                             ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         A = @localmem Float64 (n,n)
         L = @localmem Float64 (n,n)
@@ -285,18 +267,16 @@ end
         r = @localmem Float64 (n,)
         t = @localmem Float64 (n,)
         z = @localmem Float64 (n,)
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = d_in[tx,i]
-                L[tx,i] = d_in[tx,i]
-            end
-            g[tx] = d_g[tx]
+        for i in 1:n
+            A[tx,i] = d_in[tx,i]
+            L[tx,i] = d_in[tx,i]
         end
+        g[tx] = d_g[tx]
         @synchronize
 
-        ExaTronKernels.dicf(n,L,I,J)
-        info, iters = ExaTronKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z,I,J)
-        if tx <= n && ty <= 1
+        ExaTronKernels.dicf(n,L,tx)
+        info, iters = ExaTronKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z,tx)
+        if bx == 1
             d_out[tx] = w[tx]
             for i in 1:n
                 d_out_L[tx,i] = L[tx,i]
@@ -347,7 +327,6 @@ end
 end
 
 @testset "dprsrch" begin
-    println("Testing dprsrch")
     @kernel function dprsrch_test(::Val{n},d_x,
                             d_xl,
                             d_xu,
@@ -357,10 +336,8 @@ end
                             d_out1,
                             d_out2
                             ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         xl = @localmem Float64 (n,)
@@ -371,20 +348,18 @@ end
         wa2 = @localmem Float64 (n,)
         A = @localmem Float64 (n,n)
 
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = d_A[tx,i]
-            end
-            x[tx] = d_x[tx]
-            xl[tx] = d_xl[tx]
-            xu[tx] = d_xu[tx]
-            g[tx] = d_g[tx]
-            w[tx] = d_w[tx]
+        for i in 1:n
+            A[tx,i] = d_A[tx,i]
         end
+        x[tx] = d_x[tx]
+        xl[tx] = d_xl[tx]
+        xu[tx] = d_xu[tx]
+        g[tx] = d_g[tx]
+        w[tx] = d_w[tx]
         @synchronize
 
-        ExaTronKernels.dprsrch(n, x, xl, xu, A, g, w, wa1, wa2, I, J)
-        if ty == 1 && tx <= n
+        ExaTronKernels.dprsrch(n, x, xl, xu, A, g, w, wa1, wa2, tx)
+        if bx == 1
             d_out1[tx] = x[tx]
             d_out2[tx] = w[tx]
         end
@@ -433,25 +408,20 @@ end
 end
 
 @testset "daxpy" begin
-    println("Testing daxpy")
     @kernel function daxpy_test(::Val{n}, da, d_in,
                         d_out
                         ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         y = @localmem Float64 (n,)
-        if tx <= n
-            x[tx] = d_in[tx]
-            y[tx] = d_in[tx + n]
-        end
+        x[tx] = d_in[tx]
+        y[tx] = d_in[tx + n]
         @synchronize
 
-        ExaTronKernels.daxpy(n, da, x, 1, y, 1, I, J)
-        if ty == 1 && tx <= n
+        ExaTronKernels.daxpy(n, da, x, 1, y, 1, tx)
+        if bx == 1
             d_out[tx] = y[tx]
         end
         @synchronize
@@ -473,30 +443,25 @@ end
 end
 
 @testset "dssyax" begin
-    println("Testing dssyax")
     @kernel function dssyax_test(::Val{n},d_z,
                             d_in,
                             d_out
                             ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         z = @localmem Float64 (n,)
         q = @localmem Float64 (n,)
         A = @localmem Float64 (n,n)
 
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = d_in[tx,i]
-            end
-            z[tx] = d_z[tx]
+        for i in 1:n
+            A[tx,i] = d_in[tx,i]
         end
+        z[tx] = d_z[tx]
         @synchronize
 
-        ExaTronKernels.dssyax(n, A, z, q, I, J)
-        if ty == 1 && tx <= n
+        ExaTronKernels.dssyax(n, A, z, q, tx)
+        if bx == 1
             d_out[tx] = q[tx]
         end
         @synchronize
@@ -520,29 +485,24 @@ end
 end
 
 @testset "dmid" begin
-    println("Testing dmid")
     @kernel function dmid_test(::Val{n}, dx,
                         dl,
                         du,
                         d_out
                         ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         xl = @localmem Float64 (n,)
         xu = @localmem Float64 (n,)
-        if tx <= n
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
         @synchronize
 
-        ExaTronKernels.dmid(n, x, xl, xu, I, J)
-        if ty == 1 && tx <= n
+        ExaTronKernels.dmid(n, x, xl, xu, tx)
+        if bx == 1
             d_out[tx] = x[tx]
         end
         @synchronize
@@ -581,7 +541,6 @@ end
 end
 
 @testset "dgpstep" begin
-    println("Testing dgpstep")
     @kernel function dgpstep_test(::Val{n},dx,
                             dl,
                             du,
@@ -589,26 +548,22 @@ end
                             dw,
                             d_out
                             ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         xl = @localmem Float64 (n,)
         xu = @localmem Float64 (n,)
         w = @localmem Float64 (n,)
         s = @localmem Float64 (n,)
-        if tx <= n
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            w[tx] = dw[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        w[tx] = dw[tx]
         @synchronize
 
-        ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s, I, J)
-        if ty == 1 && tx <= n
+        ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s, tx)
+        if bx == 1
             d_out[tx] = s[tx]
         end
         @synchronize
@@ -657,7 +612,6 @@ end
 end
 
 @testset "dbreakpt" begin
-    println("Testing dbreakpt")
     @kernel function dbreakpt_test(::Val{n},dx,
                             dl,
                             du,
@@ -666,25 +620,21 @@ end
                             d_brptmin,
                             d_brptmax
                             ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         xl = @localmem Float64 (n,)
         xu = @localmem Float64 (n,)
         w = @localmem Float64 (n,)
-        if tx <= n
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            w[tx] = dw[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        w[tx] = dw[tx]
         @synchronize
 
-        nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w, I, J)
-        if ty == 1 && tx <= n
+        nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w, tx)
+        if bx == 1
             for i in 1:n
                 d_nbrpt[tx,i] = nbrpt
                 d_brptmin[tx,i] = brptmin
@@ -728,23 +678,18 @@ end
 end
 
 @testset "dnrm2" begin
-    println("Testing dnrm2")
     @kernel function dnrm2_test(::Val{n}, d_in,
                         d_out
                         ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
-        if tx <= n
-            x[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
         @synchronize
 
-        v = ExaTronKernels.dnrm2(n, x, 1, I, J)
-        if tx <= n && ty <= 1
+        v = ExaTronKernels.dnrm2(n, x, 1, tx)
+        if bx == 1
             for i in 1:n
                 d_out[tx,i] = v
             end
@@ -768,24 +713,19 @@ end
 end
 
 @testset "nrm2" begin
-    println("Testing nrm2")
     @kernel function nrm2_test(::Val{n}, d_A, d_out) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         wa = @localmem Float64 (n,)
         A = @localmem Float64 (n,n)
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = d_A[tx,i]
-            end
+        for i in 1:n
+            A[tx,i] = d_A[tx,i]
         end
         @synchronize
 
-        ExaTronKernels.nrm2!(wa, A, n, I, J)
-        if tx <= n && ty == 1
+        ExaTronKernels.nrm2!(wa, A, n, tx)
+        if bx == 1
             d_out[tx] = wa[tx]
         end
         @synchronize
@@ -812,26 +752,21 @@ end
 end
 
 @testset "dcopy" begin
-    println("Testing dcopy")
     @kernel function dcopy_test(::Val{n}, d_in,
                         d_out
                         ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         y = @localmem Float64 (n,)
 
-        if tx <= n
-            x[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
         @synchronize
 
-        ExaTronKernels.dcopy(n, x, 1, y, 1, I, J)
+        ExaTronKernels.dcopy(n, x, 1, y, 1, tx)
 
-        if tx <= n && ty <= 1
+        if bx == 1
             d_out[tx] = y[tx]
         end
         @synchronize
@@ -852,26 +787,21 @@ end
 end
 
 @testset "ddot" begin
-    println("Testing ddot")
     @kernel function ddot_test(::Val{n}, d_in,
                         d_out
                         ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (4,)
         y = @localmem Float64 (4,)
-        if tx <= n
-            x[tx] = d_in[tx]
-            y[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
+        y[tx] = d_in[tx]
         @synchronize
 
         v = ExaTronKernels.ddot(n, x, 1, y, 1)
 
-        if ty <= 1 && tx <= n
+        if bx == 1
             for i in 1:n
                 d_out[tx,i] = v
             end
@@ -894,15 +824,12 @@ end
 end
 
 @testset "dscal" begin
-    println("Testing dscal")
     @kernel function dscal_test(::Val{n}, da::Float64,
                         d_in,
                         d_out
                         ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = 1
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         if tx <= n
@@ -910,8 +837,8 @@ end
         end
         @synchronize
 
-        ExaTronKernels.dscal(n, da, x, 1, I, J)
-        if ty <= 1 && tx <= n
+        ExaTronKernels.dscal(n, da, x, 1, tx)
+        if bx == 1
             d_out[tx] = x[tx]
         end
         @synchronize
@@ -933,28 +860,23 @@ end
 end
 
 @testset "dtrqsol" begin
-    println("Testing dtrqsol")
     @kernel function dtrqsol_test(::Val{n}, d_x,
                             d_p,
                             d_out,
                             delta::Float64
                             ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         p = @localmem Float64 (n,)
 
-        if tx <= n
-            x[tx] = d_x[tx]
-            p[tx] = d_p[tx]
-        end
+        x[tx] = d_x[tx]
+        p[tx] = d_p[tx]
         @synchronize
 
-        sigma = ExaTronKernels.dtrqsol(n, x, p, delta, I, J)
-        if ty <= 1 && tx <= n
+        sigma = ExaTronKernels.dtrqsol(n, x, p, delta, tx)
+        if bx == 1
             for i in 1:n
                 d_out[tx,i] = sigma
             end
@@ -981,7 +903,6 @@ end
 end
 
 @testset "dspcg" begin
-    println("Testing dspcg")
     @kernel function dspcg_test(::Val{n}, delta::Float64, rtol::Float64,
                         cg_itermax::Int, dx,
                         dxl,
@@ -991,10 +912,8 @@ end
                         ds,
                         d_out
                         ) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         xl = @localmem Float64 (n,)
@@ -1015,23 +934,21 @@ end
         B = @localmem Float64 (n,n)
         L = @localmem Float64 (n,n)
 
-        if tx <= n
-            for i in 1:n
-                A[i,tx] = dA[i,tx]
-            end
-            x[tx] = dx[tx]
-            xl[tx] = dxl[tx]
-            xu[tx] = dxu[tx]
-            g[tx] = dg[tx]
-            s[tx] = ds[tx]
+        for i in 1:n
+            A[i,tx] = dA[i,tx]
         end
+        x[tx] = dx[tx]
+        xl[tx] = dxl[tx]
+        xu[tx] = dxu[tx]
+        g[tx] = dg[tx]
+        s[tx] = ds[tx]
         @synchronize
 
         ExaTronKernels.dspcg(n, delta, rtol, cg_itermax, x, xl, xu,
                         A, g, s, B, L, indfree, gfree, w, iwa,
-                        wa1, wa2, wa3, wa4, wa5, I, J)
+                        wa1, wa2, wa3, wa4, wa5, tx)
 
-        if ty <= 1 && tx <= n
+        if bx == 1
             d_out[tx] = x[tx]
         end
         @synchronize
@@ -1087,28 +1004,23 @@ end
 end
 
 @testset "dgpnorm" begin
-    println("Testing dgpnorm")
     @kernel function dgpnorm_test(::Val{n}, dx, dxl, dxu, dg, d_out) where {n}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
         x = @localmem Float64 (n,)
         xl = @localmem Float64 (n,)
         xu = @localmem Float64 (n,)
         g = @localmem Float64 (n,)
 
-        if tx <= n
-            x[tx] = dx[tx]
-            xl[tx] = dxl[tx]
-            xu[tx] = dxu[tx]
-            g[tx] = dg[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dxl[tx]
+        xu[tx] = dxu[tx]
+        g[tx] = dg[tx]
         @synchronize
 
-        v = ExaTronKernels.dgpnorm(n, x, xl, xu, g, I, J)
-        if ty <= 1 && tx <= n
+        v = ExaTronKernels.dgpnorm(n, x, xl, xu, g, tx)
+        if bx == 1
             d_out[tx] = v
         end
         @synchronize
@@ -1132,7 +1044,7 @@ end
         copyto!(dxu, xu)
         copyto!(dg, g)
 
-        wait(dgpnorm_test(device, (n,n))(Val{n}(), dx, dxl, dxu, dg, d_out, ndrange=(n,n*nblk), dependencies=Event(device)))
+        wait(dgpnorm_test(device, n)(Val{n}(), dx, dxl, dxu, dg, d_out, ndrange=(n,n*nblk), dependencies=Event(device)))
         h_v = zeros(n)
         copyto!(h_v, d_out)
 
@@ -1142,54 +1054,49 @@ end
 end
 
 @testset "dtron" begin
-    println("Testing dtron")
-    @kernel function dtron_test(n::Val{N}, f::Float64, frtol::Float64, fatol::Float64, fmin::Float64,
+    @kernel function dtron_test(::Val{n}, f::Float64, frtol::Float64, fatol::Float64, fmin::Float64,
                         cgtol::Float64, cg_itermax::Int, delta::Float64, task::Int,
                         disave, ddsave,
                         dx, dxl,
                         dxu, dA,
                         dg, d_out
-                        ) where {N}
-        I = @index(Group, Linear)
-        J = @index(Local, Linear)
-        tx = J
-        ty = I
+                        ) where {n}
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
-        x = @localmem Float64 (N,)
-        xl = @localmem Float64 (N,)
-        xu = @localmem Float64 (N,)
-        g = @localmem Float64 (N,)
-        xc = @localmem Float64 (N,)
-        s = @localmem Float64 (N,)
-        wa = @localmem Float64 (N,)
-        wa1 = @localmem Float64 (N,)
-        wa2 = @localmem Float64 (N,)
-        wa3 = @localmem Float64 (N,)
-        wa4 = @localmem Float64 (N,)
-        wa5 = @localmem Float64 (N,)
-        gfree = @localmem Float64 (N,)
-        indfree = @localmem Int (N,)
-        iwa = @localmem Int (N,)
+        x = @localmem Float64 (n,)
+        xl = @localmem Float64 (n,)
+        xu = @localmem Float64 (n,)
+        g = @localmem Float64 (n,)
+        xc = @localmem Float64 (n,)
+        s = @localmem Float64 (n,)
+        wa = @localmem Float64 (n,)
+        wa1 = @localmem Float64 (n,)
+        wa2 = @localmem Float64 (n,)
+        wa3 = @localmem Float64 (n,)
+        wa4 = @localmem Float64 (n,)
+        wa5 = @localmem Float64 (n,)
+        gfree = @localmem Float64 (n,)
+        indfree = @localmem Int (n,)
+        iwa = @localmem Int (n,)
 
-        A = @localmem Float64 (N,N)
-        B = @localmem Float64 (N,N)
-        L = @localmem Float64 (N,N)
+        A = @localmem Float64 (n,n)
+        B = @localmem Float64 (n,n)
+        L = @localmem Float64 (n,n)
 
-        if tx <= N
-            for i in 1:N
-                A[i,tx] = dA[i,tx]
-            end
-            x[tx] = dx[tx]
-            xl[tx] = dxl[tx]
-            xu[tx] = dxu[tx]
-            g[tx] = dg[tx]
+        for i in 1:n
+            A[i,tx] = dA[i,tx]
         end
+        x[tx] = dx[tx]
+        xl[tx] = dxl[tx]
+        xu[tx] = dxu[tx]
+        g[tx] = dg[tx]
         @synchronize
 
-        ExaTronKernels.dtron(N, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
+        ExaTronKernels.dtron(n, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
                         cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
-                        disave, ddsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, I, J)
-        if ty <= 1 && tx <= N
+                        disave, ddsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, tx)
+        if bx == 1
             d_out[tx] = x[tx]
         end
         @synchronize
@@ -1242,7 +1149,7 @@ end
         copyto!(dA, tron_A.vals)
         copyto!(dg, g)
 
-        wait(dtron_test(device,(n,n))(Val{n}(),f,frtol,fatol,fmin,cgtol,cg_itermax,delta,task,disave,ddsave,dx,dxl,dxu,dA,dg,d_out,ndrange=(n,n*nblk),dependencies=Event(device)))
+        wait(dtron_test(device,n)(Val{n}(),f,frtol,fatol,fmin,cgtol,cg_itermax,delta,task,disave,ddsave,dx,dxl,dxu,dA,dg,d_out,ndrange=(n,n*nblk),dependencies=Event(device)))
         h_x = zeros(n)
         copyto!(h_x, d_out)
 
@@ -1258,242 +1165,238 @@ end
     end
 end
 
-# @testset "driver_kernel" begin
-#     function eval_f(n, x, dA, dc)
-#         f = 0
-#         @inbounds for i=1:n
-#             @inbounds for j=1:n
-#                 f += x[i]*dA[i,j]*x[j]
-#             end
-#         end
-#         f = 0.5*f
-#         @inbounds for i=1:n
-#             f += x[i]*dc[i]
-#         end
-#         CUDA.sync_threads()
-#         return f
-#     end
+@testset "driver_kernel" begin
+    @inline function eval_f(n, x, dA, dc)
+        f = 0
+        @inbounds for i=1:n
+            @inbounds for j=1:n
+                f += x[i]*dA[i,j]*x[j]
+            end
+        end
+        f = 0.5*f
+        @inbounds for i=1:n
+            f += x[i]*dc[i]
+        end
+        @synchronize
+        return f
+    end
 
-#     function eval_g(n, x, g, dA, dc)
-#         @inbounds for i=1:n
-#             gval = 0
-#             @inbounds for j=1:n
-#                 gval += dA[i,j]*x[j]
-#             end
-#             g[i] = gval + dc[i]
-#         end
-#         CUDA.sync_threads()
-#         return
-#     end
+    @inline function eval_g(n, x, g, dA, dc)
+        @inbounds for i=1:n
+            gval = 0
+            @inbounds for j=1:n
+                gval += dA[i,j]*x[j]
+            end
+            g[i] = gval + dc[i]
+        end
+        @synchronize
+        return
+    end
 
-#     function eval_h(scale, x, A, dA)
-#         tx = threadIdx().x
-#         ty = threadIdx().y
+    @inline function eval_h(n, scale, x, A, dA, tx)
+        for i in 1:n
+            A[i,tx] = dA[i,tx]
+        end
+        @synchronize
+        return
+    end
 
-#         A[tx,ty] = dA[tx,ty]
-#         CUDA.sync_threads()
-#         return
-#     end
+    @inline function driver_kernel(n, max_feval::Int, max_minor::Int,
+                           x::CuDeviceArray{Float64}, xl::CuDeviceArray{Float64},
+                           xu::CuDeviceArray{Float64}, dA::CuDeviceArray{Float64},
+                           dc::CuDeviceArray{Float64},
+                           tx)
+        # We start with a shared memory allocation.
+        # The first 3*n*sizeof(Float64) bytes are used for x, xl, and xu.
+        g = @localmem Float64 (n,)
+        xc = @localmem Float64 (n,)
+        s = @localmem Float64 (n,)
+        wa = @localmem Float64 (n,)
+        wa1 = @localmem Float64 (n,)
+        wa2 = @localmem Float64 (n,)
+        wa3 = @localmem Float64 (n,)
+        wa4 = @localmem Float64 (n,)
+        wa5 = @localmem Float64 (n,)
+        gfree = @localmem Float64 (n,)
+        dsave = @localmem Float64 (n,)
+        indfree = @localmem Int (n,)
+        iwa = @localmem Int (2*n,)
+        isave = @localmem Int (n,)
 
-#     function driver_kernel(n::Int, max_feval::Int, max_minor::Int,
-#                            x::CuDeviceArray{Float64}, xl::CuDeviceArray{Float64},
-#                            xu::CuDeviceArray{Float64}, dA::CuDeviceArray{Float64},
-#                            dc::CuDeviceArray{Float64})
-#         # We start with a shared memory allocation.
-#         # The first 3*n*sizeof(Float64) bytes are used for x, xl, and xu.
+        A = @localmem Float64 (n,n)
+        B = @localmem Float64 (n,n)
+        L = @localmem Float64 (n,n)
 
-#         g = @cuDynamicSharedMem(Float64, n, (3*n)*sizeof(Float64))
-#         xc = @cuDynamicSharedMem(Float64, n, (4*n)*sizeof(Float64))
-#         s = @cuDynamicSharedMem(Float64, n, (5*n)*sizeof(Float64))
-#         wa = @cuDynamicSharedMem(Float64, n, (6*n)*sizeof(Float64))
-#         wa1 = @cuDynamicSharedMem(Float64, n, (7*n)*sizeof(Float64))
-#         wa2 = @cuDynamicSharedMem(Float64, n, (8*n)*sizeof(Float64))
-#         wa3 = @cuDynamicSharedMem(Float64, n, (9*n)*sizeof(Float64))
-#         wa4 = @cuDynamicSharedMem(Float64, n, (10*n)*sizeof(Float64))
-#         wa5 = @cuDynamicSharedMem(Float64, n, (11*n)*sizeof(Float64))
-#         gfree = @cuDynamicSharedMem(Float64, n, (12*n)*sizeof(Float64))
-#         dsave = @cuDynamicSharedMem(Float64, n, (13*n)*sizeof(Float64))
-#         indfree = @cuDynamicSharedMem(Int, n, (14*n)*sizeof(Float64))
-#         iwa = @cuDynamicSharedMem(Int, 2*n, n*sizeof(Int) + (14*n)*sizeof(Float64))
-#         isave = @cuDynamicSharedMem(Int, n, (3*n)*sizeof(Int) + (14*n)*sizeof(Float64))
+        task = 0
+        status = 0
 
-#         A = @cuDynamicSharedMem(Float64, (n,n), (14*n)*sizeof(Float64)+(4*n)*sizeof(Int))
-#         B = @cuDynamicSharedMem(Float64, (n,n), (14*n+n^2)*sizeof(Float64)+(4*n)*sizeof(Int))
-#         L = @cuDynamicSharedMem(Float64, (n,n), (14*n+2*n^2)*sizeof(Float64)+(4*n)*sizeof(Int))
+        delta = 0.0
+        fatol = 0.0
+        frtol = 1e-12
+        fmin = -1e32
+        gtol = 1e-6
+        cgtol = 0.1
+        cg_itermax = n
 
-#         task = 0
-#         status = 0
+        f = 0.0
+        nfev = 0
+        ngev = 0
+        nhev = 0
+        minor_iter = 0
+        search = true
 
-#         delta = 0.0
-#         fatol = 0.0
-#         frtol = 1e-12
-#         fmin = -1e32
-#         gtol = 1e-6
-#         cgtol = 0.1
-#         cg_itermax = n
+        while search
 
-#         f = 0.0
-#         nfev = 0
-#         ngev = 0
-#         nhev = 0
-#         minor_iter = 0
-#         search = true
+            # [0|1]: Evaluate function.
 
-#         while search
+            if task == 0 || task == 1
+                f = eval_f(n, x, dA, dc)
+                nfev += 1
+                if nfev >= max_feval
+                    search = false
+                end
+            end
 
-#             # [0|1]: Evaluate function.
+            # [2] G or H: Evaluate gradient and Hessian.
 
-#             if task == 0 || task == 1
-#                 f = eval_f(n, x, dA, dc)
-#                 nfev += 1
-#                 if nfev >= max_feval
-#                     search = false
-#                 end
-#             end
+            if task == 0 || task == 2
+                eval_g(n, x, g, dA, dc)
+                eval_h(n, 1.0, x, A, dA, tx)
+                ngev += 1
+                nhev += 1
+                minor_iter += 1
+            end
 
-#             # [2] G or H: Evaluate gradient and Hessian.
+            # Initialize the trust region bound.
 
-#             if task == 0 || task == 2
-#                 eval_g(n, x, g, dA, dc)
-#                 eval_h(1.0, x, A, dA)
-#                 ngev += 1
-#                 nhev += 1
-#                 minor_iter += 1
-#             end
+            if task == 0
+                gnorm0 = ExaTronKernels.dnrm2(n, g, 1, tx)
+                delta = gnorm0
+            end
 
-#             # Initialize the trust region bound.
+            # Call Tron.
 
-#             if task == 0
-#                 gnorm0 = ExaTron.dnrm2(n, g, 1)
-#                 delta = gnorm0
-#             end
+            if search
+                delta, task = ExaTronKernels.dtron(n, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
+                                            cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
+                                            isave, dsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, tx)
+            end
 
-#             # Call Tron.
+            # [3] NEWX: a new point was computed.
 
-#             if search
-#                 delta, task = ExaTron.dtron(n, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
-#                                             cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
-#                                             isave, dsave, wa, iwa, wa1, wa2, wa3, wa4, wa5)
-#             end
+            if task == 3
+                gnorm_inf = ExaTronKernels.dgpnorm(n, x, xl, xu, g, tx)
+                if gnorm_inf <= gtol
+                    task = 4
+                end
 
-#             # [3] NEWX: a new point was computed.
+                if minor_iter >= max_minor
+                    status = 1
+                    search = false
+                end
+            end
 
-#             if task == 3
-#                 gnorm_inf = ExaTron.dgpnorm(n, x, xl, xu, g)
-#                 if gnorm_inf <= gtol
-#                     task = 4
-#                 end
+            # [4] CONV: convergence was achieved.
 
-#                 if minor_iter >= max_minor
-#                     status = 1
-#                     search = false
-#                 end
-#             end
+            if task == 4
+                search = false
+            end
+        end
 
-#             # [4] CONV: convergence was achieved.
+        return status, minor_iter
+    end
 
-#             if task == 4
-#                 search = false
-#             end
-#         end
+    @kernel function driver_kernel_test(::Val{n}, max_feval, max_minor,
+                                dx, dxl, dxu, dA, dc, d_out) where {n}
+        tx = @index(Local, Linear)
+        bx = @index(Group, Linear)
 
-#         return status, minor_iter
-#     end
+        x = @localmem Float64 (n,)
+        xl = @localmem Float64 (n,)
+        xu = @localmem Float64 (n,)
 
-#     function driver_kernel_test(n, max_feval, max_minor,
-#                                 dx, dxl, dxu, dA, dc, d_out)
-#         tx = threadIdx().x
-#         ty = threadIdx().y
+        x[tx] = dx[tx]
+        xl[tx] = dxl[tx]
+        xu[tx] = dxu[tx]
+        @synchronize
 
-#         x = @cuDynamicSharedMem(Float64, n)
-#         xl = @cuDynamicSharedMem(Float64, n, n*sizeof(Float64))
-#         xu = @cuDynamicSharedMem(Float64, n, (2*n)*sizeof(Float64))
+        status, minor_iter = driver_kernel(n, max_feval, max_minor, x, xl, xu, dA, dc,tx)
 
-#         if ty == 1
-#             x[tx] = dx[tx]
-#             xl[tx] = dxl[tx]
-#             xu[tx] = dxu[tx]
-#         end
-#         CUDA.sync_threads()
+        if bx == 1
+            d_out[tx] = x[tx]
+        end
+        @synchronize
+    end
 
-#         status, minor_iter = driver_kernel(n, max_feval, max_minor, x, xl, xu, dA, dc)
+    max_feval = 500
+    max_minor = 100
 
-#         if ty == 1
-#             d_out[tx] = x[tx]
-#         end
-#         CUDA.sync_threads()
-#         return
-#     end
+    tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+    tron_B = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+    tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
 
-#     max_feval = 500
-#     max_minor = 100
+    dx = AT{Float64}(undef, n)
+    dxl = AT{Float64}(undef, n)
+    dxu = AT{Float64}(undef, n)
+    dA = AT{Float64,2}(undef, (n,n))
+    dc = AT{Float64}(undef, n)
+    d_out = AT{Float64}(undef, n)
 
-#     tron_A = ExaTron.TronDenseMatrix{Array{Float64,2}}(n)
-#     tron_B = ExaTron.TronDenseMatrix{Array{Float64,2}}(n)
-#     tron_L = ExaTron.TronDenseMatrix{Array{Float64,2}}(n)
+    for i=1:10
+        L = tril(rand(n,n))
+        A = L*transpose(L)
+        A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
+        x = rand(n)
+        xl = x .- abs.(rand(n))
+        xu = x .+ abs.(rand(n))
+        c = rand(n)
 
-#     dx = AT{Float64}(undef, n)
-#     dxl = AT{Float64}(undef, n)
-#     dxu = AT{Float64}(undef, n)
-#     dA = AT{Float64,2}(undef, (n,n))
-#     dc = AT{Float64}(undef, n)
-#     d_out = AT{Float64}(undef, n)
+        tron_A.vals .= A
 
-#     for i=1:itermax
-#         L = tril(rand(n,n))
-#         A = L*transpose(L)
-#         A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
-#         x = rand(n)
-#         xl = x .- abs.(rand(n))
-#         xu = x .+ abs.(rand(n))
-#         c = rand(n)
+        copyto!(dx, x)
+        copyto!(dxl, xl)
+        copyto!(dxu, xu)
+        copyto!(dA, tron_A.vals)
+        copyto!(dc, c)
 
-#         tron_A.vals .= A
+        function eval_f_cb(x)
+            f = 0.5*(transpose(x)*A*x) + transpose(c)*x
+            return f
+        end
 
-#         copyto!(dx, x)
-#         copyto!(dxl, xl)
-#         copyto!(dxu, xu)
-#         copyto!(dA, tron_A.vals)
-#         copyto!(dc, c)
+        function eval_g_cb(x, g)
+            g .= A*x .+ c
+        end
 
-#         function eval_f_cb(x)
-#             f = 0.5*(transpose(x)*A*x) + transpose(c)*x
-#             return f
-#         end
+        function eval_h_cb(x, mode, rows, cols, scale, lambda, values)
+            nz = 1
+            if mode == :Structure
+                @inbounds for j=1:n
+                    @inbounds for i=j:n
+                        rows[nz] = i
+                        cols[nz] = j
+                        nz += 1
+                    end
+                end
+            else
+                @inbounds for j=1:n
+                    @inbounds for i=j:n
+                        values[nz] = A[i,j]
+                        nz += 1
+                    end
+                end
+            end
+        end
 
-#         function eval_g_cb(x, g)
-#             g .= A*x .+ c
-#         end
+        nele_hess = div(n*(n+1), 2)
+        tron = ExaTronKernels.createProblem(n, xl, xu, nele_hess, eval_f_cb, eval_g_cb, eval_h_cb; :matrix_type=>:Dense, :max_minor=>max_minor)
+        copyto!(tron.x, x)
+        status = ExaTronKernels.solveProblem(tron)
 
-#         function eval_h_cb(x, mode, rows, cols, scale, lambda, values)
-#             nz = 1
-#             if mode == :Structure
-#                 @inbounds for j=1:n
-#                     @inbounds for i=j:n
-#                         rows[nz] = i
-#                         cols[nz] = j
-#                         nz += 1
-#                     end
-#                 end
-#             else
-#                 @inbounds for j=1:n
-#                     @inbounds for i=j:n
-#                         values[nz] = A[i,j]
-#                         nz += 1
-#                     end
-#                 end
-#             end
-#         end
+        wait(driver_kernel_test(device,n)(Val{n}(),max_feval,max_minor,dx,dxl,dxu,dA,dc,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        h_x = zeros(n)
+        copyto!(h_x, d_out)
 
-#         nele_hess = div(n*(n+1), 2)
-#         tron = ExaTron.createProblem(n, xl, xu, nele_hess, eval_f_cb, eval_g_cb, eval_h_cb; :matrix_type=>:Dense, :max_minor=>max_minor)
-#         copyto!(tron.x, x)
-#         status = ExaTron.solveProblem(tron)
-
-#         CUDA.@sync @cuda threads=(n,n) blocks=nblk shmem=((4*n)*sizeof(Int)+(14*n+3*(n^2))*sizeof(Float64)) driver_kernel_test(n,max_feval,max_minor,dx,dxl,dxu,dA,dc,d_out)
-#         h_x = zeros(n)
-#         copyto!(h_x, d_out)
-
-#         @test norm(h_x .- tron.x) <= 1e-10
-#     end
-# end
+        @test norm(h_x .- tron.x) <= 1e-10
+    end
+end

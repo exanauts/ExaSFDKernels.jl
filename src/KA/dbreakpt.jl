@@ -1,6 +1,6 @@
 @inline function dbreakpt(n::Int, x, xl,
                           xu, w,
-                          I, J)
+                          tx)
     zero = 0.0
     nbrpt = 0
     brptmin = zero

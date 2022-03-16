@@ -1,8 +1,4 @@
 module ExaTronKernels
-    # using CUDA
-    # using oneAPI
-    using KernelAbstractions
-    const KA = KernelAbstractions
     using LinearAlgebra
     include("TronMatrix.jl")
     include("ihsort.jl")
@@ -33,6 +29,7 @@ module ExaTronKernels
     include("CPU/dtron.jl")
 
     # oneAPI.jl
+    # using oneAPI
     # include("oneAPI/daxpy.jl")
     # include("oneAPI/dcopy.jl")
     # include("oneAPI/ddot.jl")
@@ -56,6 +53,7 @@ module ExaTronKernels
     # include("oneAPI/TronMatrix.jl")
     
     # # CUDA.jl
+    # using CUDA
     # include("CUDA/daxpy.jl")
     # include("CUDA/dcopy.jl")
     # include("CUDA/ddot.jl")
@@ -79,6 +77,8 @@ module ExaTronKernels
     # include("CUDA/TronMatrix.jl")
 
     # # KA.jl
+    # using KernelAbstractions
+    # const KA = KernelAbstractions
     # include("KA/architecture.jl")
     # include("KA/daxpy.jl")
     # include("KA/dcopy.jl")

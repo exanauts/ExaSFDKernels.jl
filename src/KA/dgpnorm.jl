@@ -1,9 +1,7 @@
 @inline function dgpnorm(n::Int, x, xl,
                          xu, g,
-                         I, J)
+                         tx)
 
-    tx = J
-    ty = 1
     @synchronize
     res = 0.0
     inf_norm = @localmem Float64 (1,)

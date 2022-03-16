@@ -1,5 +1,4 @@
-@inline function dnrm2(n::Int,x,incx::Int, I, J)
-    tx = J
+@inline function dnrm2(n::Int,x,incx::Int, tx)
 
     @synchronize
     v = 0.0

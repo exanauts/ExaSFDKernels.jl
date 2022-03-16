@@ -10,7 +10,7 @@
                wa1, wa2,
                wa3, wa4,
                wa5,
-               I, J
+               tx
                )
     zero = 0.0
     p5 = 0.5
@@ -69,12 +69,12 @@
             # Save the best function value, iterate, and gradient.
 
             fc = f
-            dcopy(n,x,1,xc,1, I, J)
+            dcopy(n,x,1,xc,1, tx)
 
             # Compute the Cauchy step and store in s.
 
             alphac = dcauchy(n,x,xl,xu,A,g,delta,
-                             alphac,s,wa, I, J)
+                             alphac,s,wa, tx)
 
             # Compute the projected Newton step.
 
@@ -82,12 +82,12 @@
                                x, xl, xu, A, g, s,
                                B, L,
                                indfree, gfree, wa, iwa,
-                               wa1, wa2, wa3, wa4, wa5, I, J)
+                               wa1, wa2, wa3, wa4, wa5, tx)
 
             # Compute the predicted reduction.
 
-            dssyax(n, A, s, wa, I, J)
-            prered = -(ddot(n,s,1,g,1,I,J) + p5*ddot(n,s,1,wa,1,I,J))
+            dssyax(n, A, s, wa, tx)
+            prered = -(ddot(n,s,1,g,1,tx) + p5*ddot(n,s,1,wa,1,tx))
             iterscg = iterscg + iters
 
             # Set task to compute the function.
@@ -105,14 +105,14 @@
 
             # On the first iteration, adjust the initial step bound.
 
-            snorm = dnrm2(n,s,1,I,J)
+            snorm = dnrm2(n,s,1,tx)
             if iter == 1
                 delta = min(delta,snorm)
             end
 
             # Update the trust region bound.
 
-            g0 = ddot(n,g,1,s,1,I,J)
+            g0 = ddot(n,g,1,s,1,tx)
             if f-fc-g0 <= zero
                 alpha = sigma3
             else
@@ -146,7 +146,7 @@
                 # Unsuccessful iterate.
 
                 task = 1 # 'F'
-                dcopy(n,xc,1,x,1,I,J)
+                dcopy(n,xc,1,x,1,tx)
                 f = fc
 
             end

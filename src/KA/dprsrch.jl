@@ -6,7 +6,7 @@
                          w,
                          wa1,
                          wa2,
-                         I, J)
+                         tx)
     one = 1.0
     p5 = 0.5
 
@@ -24,7 +24,7 @@
     nsteps = 0
 
     # Find the smallest break-point on the ray x + alpha*w.
-    nbrpt,brptmin,brptmax = dbreakpt(n,x,xl,xu,w,I,J)
+    nbrpt,brptmin,brptmax = dbreakpt(n,x,xl,xu,w,tx)
 
     search = true
     while (search && alpha > brptmin)
@@ -33,10 +33,10 @@
         # decrease condition.
 
         nsteps = nsteps + 1
-        dgpstep(n,x,xl,xu,alpha,w,wa1,I,J)
-        dssyax(n,A,wa1,wa2,I,J)
-        gts = ddot(n,g,1,wa1,1,I,J)
-        q = p5*ddot(n,wa1,1,wa2,1,I,J) + gts
+        dgpstep(n,x,xl,xu,alpha,w,wa1,tx)
+        dssyax(n,A,wa1,wa2,tx)
+        gts = ddot(n,g,1,wa1,1,tx)
+        q = p5*ddot(n,wa1,1,wa2,1,tx) + gts
         if q <= mu0*gts
             search = false
         else
@@ -59,10 +59,10 @@
 
     # Compute the final iterate and step.
 
-    dgpstep(n,x,xl,xu,alpha,w,wa1,I,J)
-    daxpy(n,alpha,w,1,x,1,I,J)
-    dmid(n,x,xl,xu,I,J)
-    dcopy(n,wa1,1,w,1,I,J)
+    dgpstep(n,x,xl,xu,alpha,w,wa1,tx)
+    daxpy(n,alpha,w,1,x,1,tx)
+    dmid(n,x,xl,xu,tx)
+    dcopy(n,wa1,1,w,1,tx)
 
     return
 end

@@ -1,21 +1,7 @@
-@inline function Base.fill!(w::CuDeviceArray{Float64,1}, val::Float64)
-    tx = threadIdx().x
-    ty = threadIdx().y
-
-    if tx <= length(w) && ty == 1
-        @inbounds w[tx] = val
-    end
-    CUDA.sync_threads()
-
-    return
-end
-
-@inline function nrm2!(wa, A, n::Int, I, J)
-    tx = J
-    ty = 1
+@inline function nrm2!(wa, A, n::Int, tx)
 
     v = 0.0
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             v += A[j,tx]^2
         end
@@ -47,12 +33,9 @@ end
 @inline function dssyax(n::Int, A,
                         z,
                         q,
-                        I, J)
-    tx = J
-    ty = 1
-
+                        tx)
     v = 0.0
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             v += A[tx,j]*z[j]
         end
@@ -85,10 +68,7 @@ end
 @inline function reorder!(n::Int, nfree::Int, B,
                           A, indfree,
                           iwa,
-                          I, J)
-    tx = J
-    ty = 1
-
+                          tx)
     #=
     if tx == 1 && ty == 1
         @inbounds for j=1:nfree
@@ -103,7 +83,7 @@ end
         end
     end
     =#
-    if tx <= nfree && ty == 1
+    if tx <= nfree
         @inbounds begin
             jfree = indfree[tx]
             B[tx,tx] = A[jfree,jfree]
