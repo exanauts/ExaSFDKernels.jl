@@ -1,7 +1,6 @@
 # Left-looking Cholesky
-@inline function dicf(n::Int,L::oneDeviceArray{Float64,2})
+@inline function ExaTronKernels.dicf(n::Int,L::oneDeviceArray{Float64,2})
     tx = get_local_id()
-    ty = get_group_id()
 
     @inbounds for j=1:n
         # Apply the pending updates.

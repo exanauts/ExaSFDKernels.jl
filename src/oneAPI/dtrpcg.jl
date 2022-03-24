@@ -1,4 +1,4 @@
-@inline function dtrpcg(n::Int, A::oneDeviceArray{Float64,2},
+@inline function ExaTronKernels.dtrpcg(n::Int, A::oneDeviceArray{Float64,2},
                         g::oneDeviceArray{Float64,1}, delta::Float64,
                         L::oneDeviceArray{Float64,2},
                         tol::Float64, stol::Float64, itermax::Int,
@@ -9,7 +9,6 @@
                         t::oneDeviceArray{Float64,1},
                         z::oneDeviceArray{Float64,1})
   tx = get_local_id()
-  ty = get_group_id()
   zero = 0.0
   one = 1.0
 
@@ -22,16 +21,14 @@
   dcopy(n,g,1,t,1)
   dscal(n,-one,t,1)
   dcopy(n,t,1,r,1)
-  oneAPI.@println("oneAPI: $(r[tx]) $tx")
+  oneAPI.@println("oneAPI r: $(r[tx]) $tx")
+  oneAPI.@println("oneAPI L in: $(L[tx, 1]) $(L[tx, 2]) $(L[tx, 3]) $(L[tx, 4]) $tx")
   dnsol(n, L, r)
-  # if ty == 4
-  #   for i in 1:n
-  #       oneAPI.@println("L[$tx, $i]: $(L[tx,i])")
-  #   end
-  # end
 
   # Initialize the direction p.
+  oneAPI.@println("oneAPI r: $(r[tx]) $tx")
   dcopy(n,r,1,p,1)
+  # oneAPI.@println("oneAPI p: $(p[tx]) $tx")
 
   # Initialize rho and the norms of r and t.
   rho = ddot(n,r,1,r,1)
@@ -45,7 +42,7 @@
     return info, iters
   end
 
-  for iters=1:1
+  for iters=1:itermax
 
     # Note:
     # Q(w) = 0.5*w'Bw + h'w, where B=L^{-1}AL^{-T}, h=L^{-1}g.

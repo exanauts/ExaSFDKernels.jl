@@ -46,9 +46,9 @@ is checked if n < blockDim().x is OK.
 """
 
 Random.seed!(0)
-itermax = 0
+itermax = 10
 n = 4
-nblk = 4
+nblk = 1
 
 @testset "dicf" begin
 println("Testing dicf")
@@ -58,20 +58,18 @@ println("Testing dicf")
         d_out::oneDeviceArray{Float64, 2}
     ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         L = oneLocalArray(Float64, (n,n))
 
-        if tx <= n && ty == 1
-            for i in 1:n
-                L[tx,i] = d_in[tx,i]
-            end
+        for i in 1:n
+            L[i,tx] = d_in[i,tx]
         end
         barrier()
 
         # Test Cholesky factorization.
         ExaTronKernels.dicf(n,L)
-        if ty == 1 && tx <= n
+        if bx == 1
             for i in 1:n
                 d_out[tx,i] = L[tx,i]
             end
@@ -114,22 +112,20 @@ end
         d_out::oneDeviceArray{Float64, 2}
     ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         wa1 = oneLocalArray(Float64, n)
         wa2 = oneLocalArray(Float64, n)
         A = oneLocalArray(Float64, (n,n))
         L = oneLocalArray(Float64, (n,n))
 
-        if tx <= n && ty <= 1
-            for i in 1:n
-                A[tx,i] = dA[tx,i]
-            end
+        for i in 1:n
+            A[i,tx] = dA[i,tx]
         end
         barrier()
 
         ExaTronKernels.dicfs(n, alpha, A, L, wa1, wa2)
-        if tx <= n && ty <= 1
+        if bx == 1
             for i in 1:n
                 d_out[tx,i] = L[tx,i]
             end
@@ -187,7 +183,7 @@ end
                             d_out2::oneDeviceArray{Float64, 1}
                             ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         xl = oneLocalArray(Float64, n)
@@ -197,18 +193,16 @@ end
         wa = oneLocalArray(Float64, n)
         A = oneLocalArray(Float64, (n,n))
 
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = dA[tx,i]
-            end
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            g[tx] = dg[tx]
+        for i in 1:n
+            A[i,tx] = dA[i,tx]
         end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        g[tx] = dg[tx]
 
         alpha = ExaTronKernels.dcauchy(n,x,xl,xu,A,g,delta,alpha,s,wa)
-        if ty == 1 && tx <= n
+        if bx == 1
             d_out1[tx] = s[tx]
             d_out2[tx] = alpha
         end
@@ -254,94 +248,91 @@ end
     end
 end
 
-@testset "dtrpcg" begin
-    println("Testing dtrpcg")
-    function dtrpcg_test(::Val{n}, delta::Float64, tol::Float64,
-                            stol::Float64, 
-                            d_in::oneDeviceArray{Float64, 2},
-                            d_g::oneDeviceArray{Float64, 1},
-                            d_out_L::oneDeviceArray{Float64, 2},
-                            d_out::oneDeviceArray{Float64, 1}
-                            ) where {n}
-        tx = get_local_id()
-        ty = get_group_id()
+# @testset "dtrpcg" begin
+#     println("Testing dtrpcg")
+#     function dtrpcg_test(::Val{n}, delta::Float64, tol::Float64,
+#                             stol::Float64, 
+#                             d_in::oneDeviceArray{Float64, 2},
+#                             d_g::oneDeviceArray{Float64, 1},
+#                             d_out_L::oneDeviceArray{Float64, 2},
+#                             d_out::oneDeviceArray{Float64, 1}
+#                             ) where {n}
+#         tx = get_local_id()
+#         bx = get_group_id()
 
-        A = oneLocalArray(Float64, (n,n))
-        L = oneLocalArray(Float64, (n,n))
+#         A = oneLocalArray(Float64, (n,n))
+#         L = oneLocalArray(Float64, (n,n))
 
-        g = oneLocalArray(Float64, n)
-        w = oneLocalArray(Float64, n)
-        p = oneLocalArray(Float64, n)
-        q = oneLocalArray(Float64, n)
-        r = oneLocalArray(Float64, n)
-        t = oneLocalArray(Float64, n)
-        z = oneLocalArray(Float64, n)
+#         g = oneLocalArray(Float64, n)
+#         w = oneLocalArray(Float64, n)
+#         p = oneLocalArray(Float64, n)
+#         q = oneLocalArray(Float64, n)
+#         r = oneLocalArray(Float64, n)
+#         t = oneLocalArray(Float64, n)
+#         z = oneLocalArray(Float64, n)
 
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = d_in[tx,i]
-                L[tx,i] = d_in[tx,i]
-            end
-            g[tx] = d_g[tx]
-        end
-        barrier()
+#         for i in 1:n
+#             A[i,tx] = d_in[i,tx]
+#             L[i,tx] = d_in[i,tx]
+#         end
+#         g[tx] = d_g[tx]
+#         barrier()
 
-        ExaTronKernels.dicf(n,L)
-        info, iters = ExaTronKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z)
-        if tx <= n && ty <= 1
-            d_out[tx] = w[tx]
-            # oneAPI.@println("w[$tx]: ", w[tx])
-            for i in 1:n
-                d_out_L[tx,i] = L[tx,i]
-            end
-        end
-        barrier()
-    end
+#         # oneAPI.@println("oneAPI L in: $(L[tx, 1]) $(L[tx, 2]) $(L[tx, 3]) $(L[tx, 4]) $tx")
+#         ExaTronKernels.dicf(n,L)
+#         # oneAPI.@println("oneAPI L out: $(L[tx, 1]) $(L[tx, 2]) $(L[tx, 3]) $(L[tx, 4]) $tx")
+#         info, iters = ExaTronKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z)
+#         if bx == 1
+#             d_out[tx] = w[tx]
+#             for i in 1:n
+#                 d_out_L[i,tx] = L[i,tx]
+#             end
+#         end
+#         barrier()
+#     end
 
-    delta = 100.0
-    tol = 1e-6
-    stol = 1e-6
-    tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
-    tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
-    for i=1:1
-        L = tril(rand(n,n))
-        A = L*transpose(L)
-        A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
-        g = 0.1*ones(n)
-        w = zeros(n)
-        p = zeros(n)
-        q = zeros(n)
-        r = zeros(n)
-        t = zeros(n)
-        z = zeros(n)
-        tron_A.vals .= A
-        tron_L.vals .= A
-        d_in = oneArray{Float64,2}(undef, (n,n))
-        d_g = oneArray{Float64}(undef, n)
-        d_out_L = oneArray{Float64,2}(undef, (n,n))
-        d_out = oneArray{Float64}(undef, n)
-        copyto!(d_in, A)
-        copyto!(d_g, g)
-        @oneapi items=(n, nblk) groups=nblk dtrpcg_test(Val{n}(),delta,tol,stol,d_in,d_g,d_out_L,d_out)
-        oneAPI.synchronize()
-        h_w = zeros(n)
-        h_L = zeros(n,n)
-        copyto!(h_L, d_out_L)
-        copyto!(h_w, d_out)
+#     delta = 100.0
+#     tol = 1e-6
+#     stol = 1e-6
+#     tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+#     tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+#     for i=1:1
+#         L = tril(rand(n,n))
+#         A = L*transpose(L)
+#         A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
+#         g = 0.1*ones(n)
+#         w = zeros(n)
+#         p = zeros(n)
+#         q = zeros(n)
+#         r = zeros(n)
+#         t = zeros(n)
+#         z = zeros(n)
+#         tron_A.vals .= A
+#         tron_L.vals .= A
+#         d_in = oneArray{Float64,2}(undef, (n,n))
+#         d_g = oneArray{Float64}(undef, n)
+#         d_out_L = oneArray{Float64,2}(undef, (n,n))
+#         d_out = oneArray{Float64}(undef, n)
+#         copyto!(d_in, A)
+#         copyto!(d_g, g)
+#         @oneapi items=(n, nblk) groups=nblk dtrpcg_test(Val{n}(),delta,tol,stol,d_in,d_g,d_out_L,d_out)
+#         oneAPI.synchronize()
+#         h_w = zeros(n)
+#         h_L = zeros(n,n)
+#         copyto!(h_L, d_out_L)
+#         copyto!(h_w, d_out)
 
-        indr = zeros(Int, n)
-        indf = zeros(n)
-        list = zeros(n)
-        ExaTronKernels.dicf(n, n^2, tron_L, 5, indr, indf, list, w)
-        @show tron_L
-        ExaTronKernels.dtrpcg(n, tron_A, g, delta, tron_L, tol, stol, n, w, p, q, r, t, z)
+#         indr = zeros(Int, n)
+#         indf = zeros(n)
+#         list = zeros(n)
+#         ExaTronKernels.dicf(n, n^2, tron_L, 5, indr, indf, list, w)
+#         # println("L out: $tron_L")
+#         ExaTronKernels.dtrpcg(n, tron_A, g, delta, tron_L, tol, stol, n, w, p, q, r, t, z)
 
-        @test norm(tril(h_L) .- tril(tron_L.vals)) <= tol
-        # @show h_w
-        # @show w
-        @test norm(h_w .- w) <= tol
-    end
-end
+#         @test norm(tril(h_L) .- tril(tron_L.vals)) <= tol
+#         @test norm(h_w .- w) <= tol
+#     end
+# end
 
 @testset "dprsrch" begin
     println("Testing dprsrch")
@@ -356,7 +347,7 @@ end
                             d_out2::oneDeviceArray{Float64, 1}
                             ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         xl = oneLocalArray(Float64, n)
@@ -367,20 +358,18 @@ end
         wa2 = oneLocalArray(Float64, n)
         A = oneLocalArray(Float64, (n,n))
 
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = d_A[tx,i]
-            end
-            x[tx] = d_x[tx]
-            xl[tx] = d_xl[tx]
-            xu[tx] = d_xu[tx]
-            g[tx] = d_g[tx]
-            w[tx] = d_w[tx]
+        for i in 1:n
+            A[i,tx] = d_A[i,tx]
         end
+        x[tx] = d_x[tx]
+        xl[tx] = d_xl[tx]
+        xu[tx] = d_xu[tx]
+        g[tx] = d_g[tx]
+        w[tx] = d_w[tx]
         barrier()
 
         ExaTronKernels.dprsrch(n, x, xl, xu, A, g, w, wa1, wa2)
-        if ty == 1 && tx <= n
+        if bx == 1
             d_out1[tx] = x[tx]
             d_out2[tx] = w[tx]
         end
@@ -436,19 +425,17 @@ end
                         d_out::oneDeviceArray{Float64, 1}
                         ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         y = oneLocalArray(Float64, n)
 
-        if tx <= n
-            x[tx] = d_in[tx]
-            y[tx] = d_in[tx + n]
-        end
+        x[tx] = d_in[tx]
+        y[tx] = d_in[tx + n]
         barrier()
 
         ExaTronKernels.daxpy(n, da, x, 1, y, 1)
-        if ty == 1 && tx <= n
+        if bx == 1
             d_out[tx] = y[tx]
         end
         barrier()
@@ -477,22 +464,20 @@ end
                             d_out::oneDeviceArray{Float64, 1}
                         ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         z = oneLocalArray(Float64, n)
         q = oneLocalArray(Float64, n)
         A = oneLocalArray(Float64, (n,n))
 
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = d_in[tx,i]
-            end
-            z[tx] = d_z[tx]
+        for i in 1:n
+            A[i,tx] = d_in[i,tx]
         end
+        z[tx] = d_z[tx]
         barrier()
 
         ExaTronKernels.dssyax(n, A, z, q)
-        if ty == 1 && tx <= n
+        if bx == 1
             d_out[tx] = q[tx]
         end
         barrier()
@@ -524,21 +509,19 @@ end
                         d_out::oneDeviceArray{Float64, 1}
                     ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         xl = oneLocalArray(Float64, n)
         xu = oneLocalArray(Float64, n)
 
-        if tx <= n
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
         barrier()
 
         ExaTronKernels.dmid(n, x, xl, xu)
-        if ty == 1 && tx <= n
+        if bx == 1
             d_out[tx] = x[tx]
         end
         barrier()
@@ -586,7 +569,7 @@ end
                             d_out::oneDeviceArray{Float64, 1}
                             ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         xl = oneLocalArray(Float64, n)
@@ -594,16 +577,14 @@ end
         w = oneLocalArray(Float64, n)
         s = oneLocalArray(Float64, n)
 
-        if tx <= n
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            w[tx] = dw[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        w[tx] = dw[tx]
         barrier()
 
         ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s)
-        if ty == 1 && tx <= n
+        if bx == 1
             d_out[tx] = s[tx]
         end
         barrier()
@@ -663,22 +644,20 @@ end
                             d_brptmax::oneDeviceArray{Float64}
                             ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         xl = oneLocalArray(Float64, n)
         xu = oneLocalArray(Float64, n)
         w = oneLocalArray(Float64, n)
-        if tx <= n
-            x[tx] = dx[tx]
-            xl[tx] = dl[tx]
-            xu[tx] = du[tx]
-            w[tx] = dw[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dl[tx]
+        xu[tx] = du[tx]
+        w[tx] = dw[tx]
         barrier()
 
         nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w)
-        if ty == 1 && tx <= n
+        if bx == 1
             for i in 1:n
                 d_nbrpt[tx,i] = nbrpt
                 d_brptmin[tx,i] = brptmin
@@ -728,17 +707,15 @@ end
                             d_out::oneDeviceArray{Float64, 2}
                         ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
 
-        if tx <= n
-            x[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
         barrier()
 
         v = ExaTronKernels.dnrm2(n, x, 1)
-        if tx <= n && ty <= 1
+        if bx == 1
             for i in 1:n
                 d_out[tx,i] = v
             end
@@ -765,20 +742,18 @@ end
     println("Testing nrm2")
     function nrm2_test(::Val{n}, d_A::oneDeviceMatrix{Float64}, d_out::oneDeviceVector{Float64}) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         wa = oneLocalArray(Float64, n)
         A = oneLocalArray(Float64, (n,n))
 
-        if tx <= n
-            for i in 1:n
-                A[tx,i] = d_A[tx,i]
-            end
+        for i in 1:n
+            A[i,tx] = d_A[i,tx]
         end
         barrier()
 
         ExaTronKernels.nrm2!(wa, A, n)
-        if tx <= n && ty == 1
+        if bx == 1
             d_out[tx] = wa[tx]
         end
         barrier()
@@ -811,19 +786,17 @@ end
     function dcopy_test(::Val{n}, d_in::oneDeviceVector{Float64, 1},
                         d_out::oneDeviceVector{Float64, 1}) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         y = oneLocalArray(Float64, (n, n))
 
-        if ty == 1
-            x[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
         barrier()
 
         ExaTronKernels.dcopy(n, x, 1, y, 1)
 
-        if ty == 1
+        if bx == 1
             d_out[tx] = y[tx]
         end
         barrier()
@@ -853,21 +826,19 @@ end
                         d_out::oneDeviceArray{Float64, 2}
                     ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         y = oneLocalArray(Float64, n)
-        if tx <= n
-            x[tx] = d_in[tx]
-            y[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
+        y[tx] = d_in[tx]
         barrier()
 
         v = ExaTronKernels.ddot(n, x, 1, y, 1)
 
-        if ty <= 1 && tx <= n
+        if bx == 1
             for i in 1:n
-                d_out[tx,i] = v
+                d_out[i,tx] = v
             end
         end
         barrier()
@@ -894,16 +865,14 @@ end
                         d_out::oneDeviceVector{Float64, 1}
                         ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
-        if tx <= n
-            x[tx] = d_in[tx]
-        end
+        x[tx] = d_in[tx]
         barrier()
 
         ExaTronKernels.dscal(n, da, x, 1)
-        if ty <= 1 && tx <= n
+        if bx == 1
             d_out[tx] = x[tx]
         end
         barrier()
@@ -932,21 +901,19 @@ end
                             delta::Float64
                             ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         p = oneLocalArray(Float64, n)
 
-        if tx <= n
-            x[tx] = d_x[tx]
-            p[tx] = d_p[tx]
-        end
+        x[tx] = d_x[tx]
+        p[tx] = d_p[tx]
         barrier()
 
         sigma = ExaTronKernels.dtrqsol(n, x, p, delta)
-        if ty <= 1 && tx <= n
+        if bx == 1
             for i in 1:n
-                d_out[tx,i] = sigma
+                d_out[i,tx] = sigma
             end
         end
         barrier()
@@ -970,110 +937,108 @@ end
     end
 end
 
-@testset "dspcg" begin
-    println("Testing dspcg")
-    function dspcg_test(::Val{n}, delta::Float64, rtol::Float64,
-                        cg_itermax::Int, 
-                        dx::oneDeviceArray{Float64, 1},
-                        dxl::oneDeviceArray{Float64, 1},
-                        dxu::oneDeviceArray{Float64, 1},
-                        dA::oneDeviceArray{Float64, 2},
-                        dg::oneDeviceArray{Float64, 1},
-                        ds::oneDeviceArray{Float64, 1},
-                        d_out::oneDeviceArray{Float64, 1}
-                        ) where {n}
-        tx = get_local_id()
-        ty = get_group_id()
+# @testset "dspcg" begin
+#     println("Testing dspcg")
+#     function dspcg_test(::Val{n}, delta::Float64, rtol::Float64,
+#                         cg_itermax::Int, 
+#                         dx::oneDeviceArray{Float64, 1},
+#                         dxl::oneDeviceArray{Float64, 1},
+#                         dxu::oneDeviceArray{Float64, 1},
+#                         dA::oneDeviceArray{Float64, 2},
+#                         dg::oneDeviceArray{Float64, 1},
+#                         ds::oneDeviceArray{Float64, 1},
+#                         d_out::oneDeviceArray{Float64, 1}
+#                         ) where {n}
+#         tx = get_local_id()
+#         bx = get_group_id()
 
-        x = oneLocalArray(Float64, n)
-        xl = oneLocalArray(Float64, n)
-        xu = oneLocalArray(Float64, n)
-        g = oneLocalArray(Float64, n)
-        s = oneLocalArray(Float64, n)
-        w = oneLocalArray(Float64, n)
-        wa1 = oneLocalArray(Float64, n)
-        wa2 = oneLocalArray(Float64, n)
-        wa3 = oneLocalArray(Float64, n)
-        wa4 = oneLocalArray(Float64, n)
-        wa5 = oneLocalArray(Float64, n)
-        gfree = oneLocalArray(Float64, n)
-        indfree = oneLocalArray(Int, n)
-        iwa = oneLocalArray(Int, n)
+#         x = oneLocalArray(Float64, n)
+#         xl = oneLocalArray(Float64, n)
+#         xu = oneLocalArray(Float64, n)
+#         g = oneLocalArray(Float64, n)
+#         s = oneLocalArray(Float64, n)
+#         w = oneLocalArray(Float64, n)
+#         wa1 = oneLocalArray(Float64, n)
+#         wa2 = oneLocalArray(Float64, n)
+#         wa3 = oneLocalArray(Float64, n)
+#         wa4 = oneLocalArray(Float64, n)
+#         wa5 = oneLocalArray(Float64, n)
+#         gfree = oneLocalArray(Float64, n)
+#         indfree = oneLocalArray(Int, n)
+#         iwa = oneLocalArray(Int, n)
 
-        A = oneLocalArray(Float64, (n,n))
-        B = oneLocalArray(Float64, (n,n))
-        L = oneLocalArray(Float64, (n,n))
+#         A = oneLocalArray(Float64, (n,n))
+#         B = oneLocalArray(Float64, (n,n))
+#         L = oneLocalArray(Float64, (n,n))
 
-        if tx <= n
-            for i in 1:n
-                A[i,tx] = dA[i,tx]
-            end
-            x[tx] = dx[tx]
-            xl[tx] = dxl[tx]
-            xu[tx] = dxu[tx]
-            g[tx] = dg[tx]
-            s[tx] = ds[tx]
-        end
-        barrier()
+#         for i in 1:n
+#             A[i,tx] = dA[i,tx]
+#         end
+#         x[tx] = dx[tx]
+#         xl[tx] = dxl[tx]
+#         xu[tx] = dxu[tx]
+#         g[tx] = dg[tx]
+#         s[tx] = ds[tx]
+#         barrier()
 
-        ExaTronKernels.dspcg(n, delta, rtol, cg_itermax, x, xl, xu,
-                        A, g, s, B, L, indfree, gfree, w, iwa,
-                        wa1, wa2, wa3, wa4, wa5)
+#         ExaTronKernels.dspcg(n, delta, rtol, cg_itermax, x, xl, xu,
+#                         A, g, s, B, L, indfree, gfree, w, iwa,
+#                         wa1, wa2, wa3, wa4, wa5)
 
-        if ty <= 1 && tx <= n
-            d_out[tx] = x[tx]
-        end
-        barrier()
+#         if bx == 1
+#             d_out[tx] = x[tx]
+#         end
+#         barrier()
 
-    end
+#     end
 
-    for i=1:itermax
-        L = tril(rand(n,n))
-        A = L*transpose(L)
-        A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
-        tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
-        tron_A.vals .= A
-        tron_B = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
-        tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
-        x = rand(n)
-        xl = x .- abs.(rand(n))
-        xu = x .+ abs.(rand(n))
-        g = A*x .+ rand(n)
-        s = rand(n)
-        delta = 2.0*norm(g)
-        rtol = 1e-6
-        cg_itermax = n
-        w = zeros(n)
-        wa = zeros(5*n)
-        gfree = zeros(n)
-        indfree = zeros(Int, n)
-        iwa = zeros(Int, 3*n)
+#     for i=1:itermax
+#         L = tril(rand(n,n))
+#         A = L*transpose(L)
+#         A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
+#         tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+#         tron_A.vals .= A
+#         tron_B = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+#         tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
+#         x = rand(n)
+#         xl = x .- abs.(rand(n))
+#         xu = x .+ abs.(rand(n))
+#         g = A*x .+ rand(n)
+#         s = rand(n)
+#         delta = 2.0*norm(g)
+#         rtol = 1e-6
+#         cg_itermax = n
+#         w = zeros(n)
+#         wa = zeros(5*n)
+#         gfree = zeros(n)
+#         indfree = zeros(Int, n)
+#         iwa = zeros(Int, 3*n)
 
-        dx = oneArray{Float64}(undef, n)
-        dxl = oneArray{Float64}(undef, n)
-        dxu = oneArray{Float64}(undef, n)
-        dA = oneArray{Float64,2}(undef, (n,n))
-        dg = oneArray{Float64}(undef, n)
-        ds = oneArray{Float64}(undef, n)
-        d_out = oneArray{Float64}(undef, n)
+#         dx = oneArray{Float64}(undef, n)
+#         dxl = oneArray{Float64}(undef, n)
+#         dxu = oneArray{Float64}(undef, n)
+#         dA = oneArray{Float64,2}(undef, (n,n))
+#         dg = oneArray{Float64}(undef, n)
+#         ds = oneArray{Float64}(undef, n)
+#         d_out = oneArray{Float64}(undef, n)
 
-        copyto!(dx, x)
-        copyto!(dxl, xl)
-        copyto!(dxu, xu)
-        copyto!(dA, tron_A.vals)
-        copyto!(dg, g)
-        copyto!(ds, s)
+#         copyto!(dx, x)
+#         copyto!(dxl, xl)
+#         copyto!(dxu, xu)
+#         copyto!(dA, tron_A.vals)
+#         copyto!(dg, g)
+#         copyto!(ds, s)
 
-        @oneapi items=(n, nblk) groups=nblk dspcg_test(Val{n}(),delta,rtol,cg_itermax,dx,dxl,dxu,dA,dg,ds,d_out)
-        h_x = zeros(n)
-        copyto!(h_x, d_out)
+#         @oneapi items=(n, nblk) groups=nblk dspcg_test(Val{n}(),delta,rtol,cg_itermax,dx,dxl,dxu,dA,dg,ds,d_out)
+#         h_x = zeros(n)
+#         copyto!(h_x, d_out)
 
-        ExaTronKernels.dspcg(n, x, xl, xu, tron_A, g, delta, rtol, s, 5, cg_itermax,
-                        tron_B, tron_L, indfree, gfree, w, wa, iwa)
+#         ExaTronKernels.dspcg(n, x, xl, xu, tron_A, g, delta, rtol, s, 5, cg_itermax,
+#                         tron_B, tron_L, indfree, gfree, w, wa, iwa)
 
-        @test norm(x .- h_x) <= 1e-10
-    end
-end
+#         @test norm(x .- h_x) <= 1e-10
+#     end
+# end
 
 @testset "dgpnorm" begin
     println("Testing dgpnorm")
@@ -1085,23 +1050,21 @@ end
         d_out::oneDeviceArray{Float64, 1}
     ) where {n}
         tx = get_local_id()
-        ty = get_group_id()
+        bx = get_group_id()
 
         x = oneLocalArray(Float64, n)
         xl = oneLocalArray(Float64, n)
         xu = oneLocalArray(Float64, n)
         g = oneLocalArray(Float64, n)
 
-        if tx <= n
-            x[tx] = dx[tx]
-            xl[tx] = dxl[tx]
-            xu[tx] = dxu[tx]
-            g[tx] = dg[tx]
-        end
+        x[tx] = dx[tx]
+        xl[tx] = dxl[tx]
+        xu[tx] = dxu[tx]
+        g[tx] = dg[tx]
         barrier()
 
         v = ExaTronKernels.dgpnorm(n, x, xl, xu, g)
-        if ty <= 1 && tx <= n
+        if bx == 1
             d_out[tx] = v
         end
         barrier()

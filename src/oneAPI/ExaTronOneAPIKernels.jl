@@ -1,4 +1,4 @@
-module ExaTronCUDAKernels
+module ExaTronOneAPIKernels
     using ..ExaTronKernels
     using ..oneAPI
     include("daxpy.jl")

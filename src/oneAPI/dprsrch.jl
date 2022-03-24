@@ -1,4 +1,4 @@
-@inline function dprsrch(n::Int, x::oneDeviceArray{Float64,1},
+@inline function ExaTronKernels.dprsrch(n::Int, x::oneDeviceArray{Float64,1},
                          xl::oneDeviceArray{Float64,1},
                          xu::oneDeviceArray{Float64,1},
                          A::oneDeviceArray{Float64,2},

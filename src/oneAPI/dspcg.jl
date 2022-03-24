@@ -1,4 +1,4 @@
-@inline function dspcg(n::Int, delta::Float64, rtol::Float64, itermax::Int,
+@inline function ExaTronKernels.dspcg(n::Int, delta::Float64, rtol::Float64, itermax::Int,
                x::oneDeviceArray{Float64,1}, xl::oneDeviceArray{Float64,1},
                xu::oneDeviceArray{Float64,1}, A::oneDeviceArray{Float64,2},
                g::oneDeviceArray{Float64,1}, s::oneDeviceArray{Float64,1},
@@ -10,8 +10,7 @@
                wa5::oneDeviceArray{Float64,1})
 
     tx = get_local_id()
-    ty = get_group_id()
-    nfree = oneLocalArray(Int, 1)
+    nfree = oneLocalArray(Int, (1,))
 
     zero = 0.0
     one = 1.0
@@ -41,8 +40,7 @@
 
         # Use a single thread to avoid multiple branch divergences.
         # XXX: Would there be any gain in employing multiple threads?
-        nfree[1] = 0
-        if tx == 1 && ty == 1
+        if tx == 1
             nfree[1] = 0
             @inbounds for j=1:n
                 if xl[j] < x[j] && x[j] < xu[j]
@@ -76,7 +74,7 @@
         # Recall that w contains A*(x[k] - x[0]).
         # Compute the norm of the reduced gradient Z'*g.
 
-        if tx <= nfree[1] && ty == 1
+        if tx <= nfree[1]
             @inbounds begin
                 gfree[tx] = w[indfree[tx]] + g[indfree[tx]]
                 wa1[tx] = g[indfree[tx]]
@@ -101,7 +99,7 @@
         # Use a projected search to obtain the next iterate.
         # The projected search algorithm stores s[k] in w.
 
-        if tx <= nfree[1] && ty == 1
+        if tx <= nfree[1]
             @inbounds begin
                 wa1[tx] = x[indfree[tx]]
                 wa2[tx] = xl[indfree[tx]]
@@ -115,7 +113,7 @@
         # Update the minimizer and the step.
         # Note that s now contains x[k+1] - x[0].
 
-        if tx <= nfree[1] && ty == 1
+        if tx <= nfree[1]
             @inbounds begin
                 x[indfree[tx]] = wa1[tx]
                 s[indfree[tx]] += w[tx]
@@ -130,7 +128,7 @@
         # Compute the gradient grad q(x[k+1]) = g + A*(x[k+1] - x[0])
         # of q at x[k+1] for the free variables.
 
-        if tx == 1 && ty == 1
+        if tx == 1
             @inbounds for j=1:nfree[1]
                 gfree[j] = w[indfree[j]] + g[indfree[j]]
             end

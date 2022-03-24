@@ -1,4 +1,4 @@
-@inline function ddot(n::Int,dx::oneDeviceArray{Float64,1},incx::Int,
+@inline function ExaTronKernels.ddot(n::Int,dx::oneDeviceArray{Float64,1},incx::Int,
                       dy::oneDeviceArray{Float64,1},incy::Int)
     # Currently, all threads compute the same dot product,
     # hence, no sync_threads() is needed.
