@@ -1,4 +1,4 @@
-@inline function dcauchy(n::Int, x::CuDeviceArray{Float64,1},
+@inline function ExaTronKernels.dcauchy(n::Int, x::CuDeviceArray{Float64,1},
                          xl::CuDeviceArray{Float64}, xu::CuDeviceArray{Float64,1},
                          A::CuDeviceArray{Float64,2}, g::CuDeviceArray{Float64,1},
                          delta::Float64, alpha::Float64, s::CuDeviceArray{Float64,1},

@@ -1,4 +1,4 @@
-@inline function dtsol(n::Int, L::CuDeviceArray{Float64,2},
+@inline function ExaTronKernels.dtsol(n::Int, L::CuDeviceArray{Float64,2},
                        r::CuDeviceArray{Float64,1})
     # Solve L'*x = r and store the result in r.
 

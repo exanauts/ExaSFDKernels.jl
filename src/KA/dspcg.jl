@@ -1,4 +1,4 @@
-@inline function dspcg(n::Int, delta::Float64, rtol::Float64, itermax::Int,
+@inline function ExaTronKernels.dspcg(n::Int, delta::Float64, rtol::Float64, itermax::Int,
                x, xl,
                xu, A,
                g, s,

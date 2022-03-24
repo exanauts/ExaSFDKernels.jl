@@ -1,4 +1,4 @@
-@inline function dtrqsol(n::Int,x::CuDeviceArray{Float64,1},
+@inline function ExaTronKernels.dtrqsol(n::Int,x::CuDeviceArray{Float64,1},
                          p::CuDeviceArray{Float64,1},delta::Float64)
     zero = 0.0
     sigma = zero

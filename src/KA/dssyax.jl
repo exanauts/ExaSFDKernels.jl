@@ -1,4 +1,4 @@
-@inline function nrm2!(wa, A, n::Int, tx)
+@inline function ExaTronKernels.nrm2!(wa, A, n::Int, tx)
 
     v = 0.0
     if tx <= n
@@ -30,7 +30,7 @@
     return
 end
 
-@inline function dssyax(n::Int, A,
+@inline function ExaTronKernels.dssyax(n::Int, A,
                         z,
                         q,
                         tx)
@@ -65,7 +65,7 @@ end
     return
 end
 
-@inline function reorder!(n::Int, nfree::Int, B,
+@inline function ExaTronKernels.reorder!(n::Int, nfree::Int, B,
                           A, indfree,
                           iwa,
                           tx)

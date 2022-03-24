@@ -1,4 +1,4 @@
-@inline function dgpnorm(n::Int, x, xl,
+@inline function ExaTronKernels.dgpnorm(n::Int, x, xl,
                          xu, g,
                          tx)
 

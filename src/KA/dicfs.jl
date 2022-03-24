@@ -1,4 +1,4 @@
-@inline function dicfs(n::Int, alpha::Float64, A,
+@inline function ExaTronKernels.dicfs(n::Int, alpha::Float64, A,
                        L,
                        wa1,
                        wa2,

@@ -1,4 +1,4 @@
-@inline function dscal(n::Int,da::Float64,dx,incx::Int,tx)
+@inline function ExaTronKernels.dscal(n::Int,da::Float64,dx,incx::Int,tx)
 
     # Ignore incx for now.
     if tx <= n

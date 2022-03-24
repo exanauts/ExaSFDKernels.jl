@@ -2,13 +2,21 @@ using Random
 using Test
 
 @testset "ExaTronKernels" begin
-    # @testset "CUDA.jl" begin
-    #     include("CUDA.jl")
-    # end
-    # @testset "oneAPI.jl" begin
-    #     include("oneAPI.jl")
-    # end
-    # @testset "KA.jl" begin
-    #     include("KA.jl")
-    # end
+    using CUDA
+    @testset "CUDA.jl" begin
+        if CUDA.has_cuda_gpu()
+            include("CUDA.jl")
+        end
+    end
+    @testset "AMDGPU.jl" begin
+        # include("AMDGPU.jl")
+    end
+    @testset "oneAPI.jl" begin
+        # include("oneAPI.jl")
+    end
+    @testset "KA.jl" begin
+        if CUDA.has_cuda_gpu()
+            include("KA.jl")
+        end
+    end
 end

@@ -1,4 +1,4 @@
-@inline function daxpy(n::Int,da::Float64,
+@inline function ExaTronKernels.daxpy(n::Int,da::Float64,
                        dx::CuDeviceArray{Float64,1},incx::Int,
                        dy::CuDeviceArray{Float64,1},incy::Int)
     tx = threadIdx().x

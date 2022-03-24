@@ -1,4 +1,4 @@
-@inline function daxpy(n::Int,da::Float64,
+@inline function ExaTronKernels.daxpy(n::Int,da::Float64,
                        dx,incx::Int,
                        dy,incy::Int,
                        tx)

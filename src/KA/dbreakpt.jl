@@ -1,4 +1,4 @@
-@inline function dbreakpt(n::Int, x, xl,
+@inline function ExaTronKernels.dbreakpt(n::Int, x, xl,
                           xu, w,
                           tx)
     zero = 0.0

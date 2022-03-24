@@ -1,4 +1,4 @@
-@inline function dtrpcg(n::Int, A::CuDeviceArray{Float64,2},
+@inline function ExaTronKernels.dtrpcg(n::Int, A::CuDeviceArray{Float64,2},
                         g::CuDeviceArray{Float64,1}, delta::Float64,
                         L::CuDeviceArray{Float64,2},
                         tol::Float64, stol::Float64, itermax::Int,

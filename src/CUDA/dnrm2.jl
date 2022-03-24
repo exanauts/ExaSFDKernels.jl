@@ -1,4 +1,4 @@
-@inline function dnrm2(n::Int,x::CuDeviceArray{Float64,1},incx::Int)
+@inline function ExaTronKernels.dnrm2(n::Int,x::CuDeviceArray{Float64,1},incx::Int)
     tx = threadIdx().x
 
     v = 0.0

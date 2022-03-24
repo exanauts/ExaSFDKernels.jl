@@ -1,4 +1,4 @@
-@inline function dnsol(n::Int, L,
+@inline function ExaTronKernels.dnsol(n::Int, L,
                        r,
                        tx)
     # Solve L*x = r and store the result in r.

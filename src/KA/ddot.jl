@@ -1,4 +1,4 @@
-@inline function ddot(n::Int,dx,incx::Int,
+@inline function ExaTronKernels.ddot(n::Int,dx,incx::Int,
                       dy,incy::Int,
                       tx)
     # Currently, all threads compute the same dot product,

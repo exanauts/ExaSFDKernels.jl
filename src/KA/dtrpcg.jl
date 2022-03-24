@@ -1,4 +1,4 @@
-@inline function dtrpcg(n::Int, A,
+@inline function ExaTronKernels.dtrpcg(n::Int, A,
                         g, delta::Float64,
                         L,
                         tol::Float64, stol::Float64, itermax::Int,

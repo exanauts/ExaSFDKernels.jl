@@ -1,5 +1,5 @@
 
-@inline function nrm2!(wa, A::CuDeviceArray{Float64,2}, n::Int)
+@inline function ExaTronKernels.nrm2!(wa, A::CuDeviceArray{Float64,2}, n::Int)
     tx = threadIdx().x
 
     v = 0.0
@@ -32,7 +32,7 @@
     return
 end
 
-@inline function dssyax(n::Int, A::CuDeviceArray{Float64,2},
+@inline function ExaTronKernels.dssyax(n::Int, A::CuDeviceArray{Float64,2},
                         z::CuDeviceArray{Float64,1},
                         q::CuDeviceArray{Float64,1})
     tx = threadIdx().x
@@ -68,7 +68,7 @@ end
     return
 end
 
-@inline function reorder!(n::Int, nfree::Int, B::CuDeviceArray{Float64,2},
+@inline function ExaTronKernels.reorder!(n::Int, nfree::Int, B::CuDeviceArray{Float64,2},
                           A::CuDeviceArray{Float64,2}, indfree::CuDeviceArray{Int,1},
                           iwa::CuDeviceArray{Int,1})
     tx = threadIdx().x

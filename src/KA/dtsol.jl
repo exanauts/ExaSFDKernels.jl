@@ -1,4 +1,4 @@
-@inline function dtsol(n::Int, L,
+@inline function ExaTronKernels.dtsol(n::Int, L,
                        r,
                        tx)
     # Solve L'*x = r and store the result in r.

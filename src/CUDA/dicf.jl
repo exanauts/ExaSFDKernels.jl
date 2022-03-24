@@ -1,5 +1,5 @@
 # Left-looking Cholesky
-@inline function dicf(n::Int,L::CuDeviceArray{Float64,2})
+@inline function ExaTronKernels.dicf(n::Int,L::CuDeviceArray{Float64,2})
     tx = threadIdx().x
 
     @inbounds for j=1:n

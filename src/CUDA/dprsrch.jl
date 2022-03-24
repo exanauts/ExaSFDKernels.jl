@@ -1,4 +1,4 @@
-@inline function dprsrch(n::Int, x::CuDeviceArray{Float64,1},
+@inline function ExaTronKernels.dprsrch(n::Int, x::CuDeviceArray{Float64,1},
                          xl::CuDeviceArray{Float64,1},
                          xu::CuDeviceArray{Float64,1},
                          A::CuDeviceArray{Float64,2},

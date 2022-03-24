@@ -7,7 +7,7 @@ This subroutine computes the gradient projection step
 
 where P is the projection on the n-dimensional interval [xl,xu].
 """
-@inline function dgpstep(n::Int,x,xl,
+@inline function ExaTronKernels.dgpstep(n::Int,x,xl,
                          xu,alpha,w,
                          s,
                          tx)

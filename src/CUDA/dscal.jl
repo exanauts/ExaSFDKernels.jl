@@ -1,4 +1,4 @@
-@inline function dscal(n::Int,da::Float64,dx::CuDeviceArray{Float64,1},incx::Int)
+@inline function ExaTronKernels.dscal(n::Int,da::Float64,dx::CuDeviceArray{Float64,1},incx::Int)
     tx = threadIdx().x
 
     # Ignore incx for now.

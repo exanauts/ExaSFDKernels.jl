@@ -1,4 +1,4 @@
-@inline function dmid(n::Int, x,
+@inline function ExaTronKernels.dmid(n::Int, x,
                       xl, xu,
                       tx)
 

@@ -1,4 +1,4 @@
-@inline function dcauchy(n::Int, x,
+@inline function ExaTronKernels.dcauchy(n::Int, x,
                          xl, xu,
                          A, g,
                          delta::Float64, alpha::Float64, s,

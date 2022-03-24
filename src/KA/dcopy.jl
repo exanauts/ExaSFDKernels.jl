@@ -1,4 +1,4 @@
-@inline function dcopy(n::Int,dx,incx::Int,
+@inline function ExaTronKernels.dcopy(n::Int,dx,incx::Int,
                        dy,incy::Int,
                        tx)
     # Ignore incx and incy for now.

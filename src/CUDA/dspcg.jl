@@ -1,4 +1,4 @@
-@inline function dspcg(n::Int, delta::Float64, rtol::Float64, itermax::Int,
+@inline function ExaTronKernels.dspcg(n::Int, delta::Float64, rtol::Float64, itermax::Int,
                x::CuDeviceArray{Float64,1}, xl::CuDeviceArray{Float64,1},
                xu::CuDeviceArray{Float64,1}, A::CuDeviceArray{Float64,2},
                g::CuDeviceArray{Float64,1}, s::CuDeviceArray{Float64,1},

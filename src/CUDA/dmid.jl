@@ -1,4 +1,4 @@
-@inline function dmid(n::Int, x::CuDeviceArray{Float64,1},
+@inline function ExaTronKernels.dmid(n::Int, x::CuDeviceArray{Float64,1},
                       xl::CuDeviceArray{Float64,1}, xu::CuDeviceArray{Float64,1})
     tx = threadIdx().x
 

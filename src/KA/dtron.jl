@@ -1,4 +1,4 @@
-@inline function dtron(n::Int, x, xl,
+@inline function ExaTronKernels.dtron(n::Int, x, xl,
                xu, f::Float64, g,
                A, frtol::Float64, fatol::Float64,
                fmin::Float64, cgtol::Float64, itermax::Int, delta::Float64, task::Int,

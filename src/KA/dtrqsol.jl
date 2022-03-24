@@ -1,4 +1,4 @@
-@inline function dtrqsol(n::Int,x,
+@inline function ExaTronKernels.dtrqsol(n::Int,x,
                          p,delta::Float64,
                          tx)
     zero = 0.0

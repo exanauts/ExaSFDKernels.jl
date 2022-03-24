@@ -1,4 +1,4 @@
-@inline function dprsrch(n::Int, x,
+@inline function ExaTronKernels.dprsrch(n::Int, x,
                          xl,
                          xu,
                          A,
