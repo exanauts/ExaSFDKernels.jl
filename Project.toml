@@ -12,10 +12,11 @@ AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CUDAKernels = "72cfdca4-0801-4ab0-bf6a-d52aa10adc57"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
-Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ROCKernels = "7eb9e9f0-4bd3-4c4c-8bef-26bd9629d9b9"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 
 [targets]
-test = ["AMDGPU", "CUDA", "CUDAKernels", "KernelAbstractions", "Random", "ROCKernels", "SparseArrays", "Test"]
+test = ["AMDGPU", "CUDA", "CUDAKernels", "KernelAbstractions", "oneAPI", "Random", "ROCKernels", "SparseArrays", "Test"]

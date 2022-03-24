@@ -65,10 +65,14 @@ function dtrpcg(n,A,g,delta,L,
     dcopy(n,g,1,t,1)
     dscal(n,-one,t,1)
     dcopy(n,t,1,r,1)
+    println("r: $r")
+    println("L: $L")
     dnsol(n, L, r)
+    println("r: $r")
 
     # Initialize the direction p.
     dcopy(n,r,1,p,1)
+    # println("p: $p")
 
     # Initialize rho and the norms of r and t.
     rho = ddot(n,r,1,r,1)

@@ -1,4 +1,4 @@
-@inline function dicfs(n::Int, alpha::Float64, A::oneDeviceArray{Float64,2},
+@inline function ExaTronKernels.dicfs(n::Int, alpha::Float64, A::oneDeviceArray{Float64,2},
                        L::oneDeviceArray{Float64,2},
                        wa1::oneDeviceArray{Float64,1},
                        wa2::oneDeviceArray{Float64,1}

@@ -1,4 +1,4 @@
-@inline function dgpnorm(n::Int, x::oneDeviceArray{Float64,1}, xl::oneDeviceArray{Float64,1},
+@inline function ExaTronKernels.dgpnorm(n::Int, x::oneDeviceArray{Float64,1}, xl::oneDeviceArray{Float64,1},
                          xu::oneDeviceArray{Float64,1}, g::oneDeviceArray{Float64,1})
     tx = get_local_id()
     res = 0.0

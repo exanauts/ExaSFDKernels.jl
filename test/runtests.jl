@@ -12,7 +12,7 @@ using Test
         # include("AMDGPU.jl")
     end
     @testset "oneAPI.jl" begin
-        # include("oneAPI.jl")
+        include("oneAPI.jl")
     end
     @testset "KA.jl" begin
         if CUDA.has_cuda_gpu()

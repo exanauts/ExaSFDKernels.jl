@@ -11,7 +11,7 @@ function TronDenseMatrix(I::VI, J::VI, V::oneArray, n) where {VI}
     return A
 end
 
-@inline function Base.fill!(w::oneDeviceArray{Float64,1}, val::Float64)
+@inline function ExaTronKernels.Base.fill!(w::oneDeviceArray{Float64,1}, val::Float64)
     tx = get_local_id()
     ty = get_group_id()
 

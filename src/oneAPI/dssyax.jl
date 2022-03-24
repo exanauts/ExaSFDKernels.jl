@@ -1,10 +1,10 @@
 
-@inline function nrm2!(wa, A::oneDeviceArray{Float64,2}, n::Int)
+@inline function ExaTronKernels.nrm2!(wa, A::oneDeviceArray{Float64,2}, n::Int)
     tx = get_local_id()
     ty = get_group_id()
 
     v = 0.0
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             v += A[j,tx]^2
         end
@@ -33,14 +33,13 @@
     return
 end
 
-@inline function dssyax(n::Int, A::oneDeviceArray{Float64,2},
+@inline function ExaTronKernels.dssyax(n::Int, A::oneDeviceArray{Float64,2},
                         z::oneDeviceArray{Float64,1},
                         q::oneDeviceArray{Float64,1})
     tx = get_local_id()
-    ty = get_group_id()
 
     v = 0.0
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             v += A[tx,j]*z[j]
         end
@@ -70,11 +69,10 @@ end
     return
 end
 
-@inline function reorder!(n::Int, nfree::Int, B::oneDeviceArray{Float64,2},
+@inline function ExaTronKernels.reorder!(n::Int, nfree::Int, B::oneDeviceArray{Float64,2},
                           A::oneDeviceArray{Float64,2}, indfree::oneDeviceArray{Int,1},
                           iwa::oneDeviceArray{Int,1})
     tx = get_local_id()
-    ty = get_group_id()
 
     #=
     if tx == 1 && ty == 1

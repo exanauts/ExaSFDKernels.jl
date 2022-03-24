@@ -1,4 +1,4 @@
-@inline function dbreakpt(n::Int, x::oneDeviceArray{Float64,1}, xl::oneDeviceArray{Float64,1},
+@inline function ExaTronKernels.dbreakpt(n::Int, x::oneDeviceArray{Float64,1}, xl::oneDeviceArray{Float64,1},
                           xu::oneDeviceArray{Float64,1}, w::oneDeviceArray{Float64,1})
     zero = 0.0
     nbrpt = 0
