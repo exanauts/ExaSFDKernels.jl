@@ -1,5 +1,5 @@
-@inline function dtrqsol(n::Int,x::CuDeviceArray{Float64,1},
-                         p::CuDeviceArray{Float64,1},delta::Float64)
+@inline function ExaTronKernels.dtrqsol(n::Int,x::ROCDeviceArray{Float64,1},
+                         p::ROCDeviceArray{Float64,1},delta::Float64)
     zero = 0.0
     sigma = zero
 

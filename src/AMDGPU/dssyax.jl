@@ -1,10 +1,9 @@
 
-@inline function nrm2!(wa, A::CuDeviceArray{Float64,2}, n::Int)
-    tx = threadIdx().x
-    ty = threadIdx().y
+@inline function ExaTronKernels.nrm2!(wa, A::ROCDeviceArray{Float64,2}, n::Int)
+    tx = workitemIdx().x
 
     v = 0.0
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             v += A[j,tx]^2
         end
@@ -33,14 +32,13 @@
     return
 end
 
-@inline function dssyax(n::Int, A::CuDeviceArray{Float64,2},
-                        z::CuDeviceArray{Float64,1},
-                        q::CuDeviceArray{Float64,1})
-    tx = threadIdx().x
-    ty = threadIdx().y
+@inline function ExaTronKernels.dssyax(n::Int, A::ROCDeviceArray{Float64,2},
+                        z::ROCDeviceArray{Float64,1},
+                        q::ROCDeviceArray{Float64,1})
+    tx = workitemIdx().x
 
     v = 0.0
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds for j=1:n
             v += A[tx,j]*z[j]
         end
@@ -70,11 +68,10 @@ end
     return
 end
 
-@inline function reorder!(n::Int, nfree::Int, B::CuDeviceArray{Float64,2},
-                          A::CuDeviceArray{Float64,2}, indfree::CuDeviceArray{Int,1},
-                          iwa::CuDeviceArray{Int,1})
-    tx = threadIdx().x
-    ty = threadIdx().y
+@inline function ExaTronKernels.reorder!(n::Int, nfree::Int, B::ROCDeviceArray{Float64,2},
+                          A::ROCDeviceArray{Float64,2}, indfree::ROCDeviceArray{Int,1},
+                          iwa::ROCDeviceArray{Int,1})
+    tx = workitemIdx().x
 
     #=
     if tx == 1 && ty == 1
@@ -90,7 +87,7 @@ end
         end
     end
     =#
-    if tx <= nfree && ty == 1
+    if tx <= nfree
         @inbounds begin
             jfree = indfree[tx]
             B[tx,tx] = A[jfree,jfree]

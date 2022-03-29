@@ -1,15 +1,15 @@
-@inline function dtron(n::Int, x::CuDeviceArray{Float64,1}, xl::CuDeviceArray{Float64,1},
-               xu::CuDeviceArray{Float64,1}, f::Float64, g::CuDeviceArray{Float64,1},
-               A::CuDeviceArray{Float64,2}, frtol::Float64, fatol::Float64,
+@inline function ExaTronKernels.dtron(n::Int, x::ROCDeviceArray{Float64,1}, xl::ROCDeviceArray{Float64,1},
+               xu::ROCDeviceArray{Float64,1}, f::Float64, g::ROCDeviceArray{Float64,1},
+               A::ROCDeviceArray{Float64,2}, frtol::Float64, fatol::Float64,
                fmin::Float64, cgtol::Float64, itermax::Int, delta::Float64, task::Int,
-               B::CuDeviceArray{Float64,2}, L::CuDeviceArray{Float64,2},
-               xc::CuDeviceArray{Float64,1}, s::CuDeviceArray{Float64,1},
-               indfree::CuDeviceArray{Int,1}, gfree::CuDeviceArray{Float64,1},
-               isave::CuDeviceArray{Int,1}, dsave::CuDeviceArray{Float64,1},
-               wa::CuDeviceArray{Float64,1}, iwa::CuDeviceArray{Int,1},
-               wa1::CuDeviceArray{Float64,1}, wa2::CuDeviceArray{Float64,1},
-               wa3::CuDeviceArray{Float64,1}, wa4::CuDeviceArray{Float64,1},
-               wa5::CuDeviceArray{Float64,1})
+               B::ROCDeviceArray{Float64,2}, L::ROCDeviceArray{Float64,2},
+               xc::ROCDeviceArray{Float64,1}, s::ROCDeviceArray{Float64,1},
+               indfree::ROCDeviceArray{Int,1}, gfree::ROCDeviceArray{Float64,1},
+               isave::ROCDeviceArray{Int,1}, dsave::ROCDeviceArray{Float64,1},
+               wa::ROCDeviceArray{Float64,1}, iwa::ROCDeviceArray{Int,1},
+               wa1::ROCDeviceArray{Float64,1}, wa2::ROCDeviceArray{Float64,1},
+               wa3::ROCDeviceArray{Float64,1}, wa4::ROCDeviceArray{Float64,1},
+               wa5::ROCDeviceArray{Float64,1})
     zero = 0.0
     p5 = 0.5
     one = 1.0

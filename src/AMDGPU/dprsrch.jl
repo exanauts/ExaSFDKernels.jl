@@ -1,11 +1,11 @@
-@inline function dprsrch(n::Int, x::CuDeviceArray{Float64,1},
-                         xl::CuDeviceArray{Float64,1},
-                         xu::CuDeviceArray{Float64,1},
-                         A::CuDeviceArray{Float64,2},
-                         g::CuDeviceArray{Float64,1},
-                         w::CuDeviceArray{Float64,1},
-                         wa1::CuDeviceArray{Float64,1},
-                         wa2::CuDeviceArray{Float64,1})
+@inline function ExaTronKernels.dprsrch(n::Int, x::ROCDeviceArray{Float64,1},
+                         xl::ROCDeviceArray{Float64,1},
+                         xu::ROCDeviceArray{Float64,1},
+                         A::ROCDeviceArray{Float64,2},
+                         g::ROCDeviceArray{Float64,1},
+                         w::ROCDeviceArray{Float64,1},
+                         wa1::ROCDeviceArray{Float64,1},
+                         wa2::ROCDeviceArray{Float64,1})
     one = 1.0
     p5 = 0.5
 

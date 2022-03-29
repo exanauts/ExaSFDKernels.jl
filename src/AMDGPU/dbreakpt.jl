@@ -1,5 +1,5 @@
-@inline function dbreakpt(n::Int, x::CuDeviceArray{Float64,1}, xl::CuDeviceArray{Float64,1},
-                          xu::CuDeviceArray{Float64,1}, w::CuDeviceArray{Float64,1})
+@inline function ExaTronKernels.dbreakpt(n::Int, x::ROCDeviceArray{Float64,1}, xl::ROCDeviceArray{Float64,1},
+                          xu::ROCDeviceArray{Float64,1}, w::ROCDeviceArray{Float64,1})
     zero = 0.0
     nbrpt = 0
     brptmin = zero

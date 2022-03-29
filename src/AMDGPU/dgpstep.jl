@@ -1,10 +1,9 @@
-@inline function dgpstep(n::Int,x::CuDeviceArray{Float64,1},xl::CuDeviceArray{Float64,1},
-                         xu::CuDeviceArray{Float64,1},alpha,w::CuDeviceArray{Float64,1},
-                         s::CuDeviceArray{Float64,1})
-    tx = threadIdx().x
-    ty = threadIdx().y
+@inline function ExaTronKernels.dgpstep(n::Int,x::ROCDeviceArray{Float64,1},xl::ROCDeviceArray{Float64,1},
+                         xu::ROCDeviceArray{Float64,1},alpha,w::ROCDeviceArray{Float64,1},
+                         s::ROCDeviceArray{Float64,1})
+    tx = workitemIdx().x
 
-    if tx <= n && ty == 1
+    if tx <= n
         @inbounds begin
             # It might be better to process this using just a single thread,
             # rather than diverging between multiple threads.
