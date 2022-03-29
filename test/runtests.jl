@@ -9,7 +9,7 @@ using Test
         end
     end
     @testset "AMDGPU.jl" begin
-        # include("AMDGPU.jl")
+        include("AMDGPU.jl")
     end
     @testset "oneAPI.jl" begin
         include("oneAPI.jl")

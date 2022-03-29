@@ -1078,7 +1078,7 @@ end
         wa5 = @localmem Float64 (n,)
         gfree = @localmem Float64 (n,)
         indfree = @localmem Int (n,)
-        iwa = @localmem Int (n,)
+        iwa = @localmem Int (2*n,)
 
         A = @localmem Float64 (n,n)
         B = @localmem Float64 (n,n)
@@ -1202,9 +1202,9 @@ end
     end
 
     @inline function driver_kernel(n, max_feval::Int, max_minor::Int,
-                           x::CuDeviceArray{Float64}, xl::CuDeviceArray{Float64},
-                           xu::CuDeviceArray{Float64}, dA::CuDeviceArray{Float64},
-                           dc::CuDeviceArray{Float64},
+                           x, xl,
+                           xu, dA,
+                           dc,
                            tx)
         # We start with a shared memory allocation.
         # The first 3*n*sizeof(Float64) bytes are used for x, xl, and xu.
@@ -1342,7 +1342,7 @@ end
     dc = AT{Float64}(undef, n)
     d_out = AT{Float64}(undef, n)
 
-    for i=1:10
+    for i=1:itermax
         L = tril(rand(n,n))
         A = L*transpose(L)
         A .= tril(A) .+ (transpose(tril(A)) .- Diagonal(A))
