@@ -7,12 +7,11 @@
     @inbounds for j=1:n
         if tx == 1
             r[j] = r[j] / L[j,j]
-            # r[j] = r[j] * L[j,j]
         end
         barrier()
 
         if tx > j && tx <= n
-            r[tx] = r[tx] - L[j,tx]*r[j]
+            r[tx] = r[tx] - L[tx,j]*r[j]
         end
         barrier()
     end

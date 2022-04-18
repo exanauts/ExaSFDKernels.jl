@@ -1,5 +1,5 @@
 @inline function ExaTronKernels.dcauchy(n::Int, x::oneDeviceArray{Float64,1},
-                         xl::oneDeviceArray{Float64}, xu::oneDeviceArray{Float64,1},
+                         xl::oneDeviceArray{Float64,1}, xu::oneDeviceArray{Float64,1},
                          A::oneDeviceArray{Float64,2}, g::oneDeviceArray{Float64,1},
                          delta::Float64, alpha::Float64, s::oneDeviceArray{Float64,1},
                          wa::oneDeviceArray{Float64,1})

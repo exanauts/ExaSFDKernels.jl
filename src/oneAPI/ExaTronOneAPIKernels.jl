@@ -20,7 +20,7 @@ module ExaTronOneAPIKernels
     include("dcauchy.jl")
     include("dtrpcg.jl")
     include("dspcg.jl")
-    # include("dtron.jl")
+    include("dtron.jl")
     include("TronMatrix.jl")
     ExaTronKernels.supports(::ExaTronKernels.OneAPIKernels) = true
 end

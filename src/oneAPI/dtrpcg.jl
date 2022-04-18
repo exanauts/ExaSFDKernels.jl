@@ -21,14 +21,10 @@
   dcopy(n,g,1,t,1)
   dscal(n,-one,t,1)
   dcopy(n,t,1,r,1)
-  oneAPI.@println("oneAPI r: $(r[tx]) $tx")
-  oneAPI.@println("oneAPI L in: $(L[tx, 1]) $(L[tx, 2]) $(L[tx, 3]) $(L[tx, 4]) $tx")
   dnsol(n, L, r)
 
   # Initialize the direction p.
-  oneAPI.@println("oneAPI r: $(r[tx]) $tx")
   dcopy(n,r,1,p,1)
-  # oneAPI.@println("oneAPI p: $(p[tx]) $tx")
 
   # Initialize rho and the norms of r and t.
   rho = ddot(n,r,1,r,1)

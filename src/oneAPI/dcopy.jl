@@ -3,7 +3,9 @@
     tx = get_local_id()
 
     # Ignore incx and incy for now.
-    @inbounds dy[tx] = dx[tx]
+    if tx <= n
+        @inbounds dy[tx] = dx[tx]
+    end
     barrier()
 
     return

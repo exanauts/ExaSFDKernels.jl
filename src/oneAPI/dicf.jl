@@ -4,11 +4,9 @@
 
     @inbounds for j=1:n
         # Apply the pending updates.
-        if j > 1
-            if tx >= j && tx <= n
-                for k=1:j-1
-                    L[tx,j] -= L[tx,k] * L[j,k]
-                end
+        if tx >= j && tx <= n
+            for k=1:j-1
+                L[tx,j] -= L[tx,k] * L[j,k]
             end
         end
         barrier()
