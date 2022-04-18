@@ -13,9 +13,9 @@ end
 
 @inline function ExaTronKernels.Base.fill!(w::oneDeviceArray{Float64,1}, val::Float64)
     tx = get_local_id()
-    ty = get_group_id()
+    bx = get_group_id()
 
-    if tx <= length(w) && ty == 1
+    if tx <= length(w) && bx == 1
         @inbounds w[tx] = val
     end
     barrier()

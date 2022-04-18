@@ -3,7 +3,9 @@
                        dy::oneDeviceArray{Float64,1},incy::Int)
     tx = get_local_id()
 
-    @inbounds dy[tx] = dy[tx] + da*dx[tx]
+    if tx <= n
+        @inbounds dy[tx] = dy[tx] + da*dx[tx]
+    end
     barrier()
 
     return

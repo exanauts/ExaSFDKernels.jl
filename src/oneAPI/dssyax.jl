@@ -1,7 +1,6 @@
 
 @inline function ExaTronKernels.nrm2!(wa, A::oneDeviceArray{Float64,2}, n::Int)
     tx = get_local_id()
-    ty = get_group_id()
 
     v = 0.0
     if tx <= n

@@ -1,15 +1,15 @@
-@inline function ExaTronKernels.dtron(n::Int, x::CuDeviceArray{Float64,1}, xl::CuDeviceArray{Float64,1},
-               xu::CuDeviceArray{Float64,1}, f::Float64, g::CuDeviceArray{Float64,1},
-               A::CuDeviceArray{Float64,2}, frtol::Float64, fatol::Float64,
+@inline function ExaTronKernels.dtron(n::Int, x::oneDeviceArray{Float64,1}, xl::oneDeviceArray{Float64,1},
+               xu::oneDeviceArray{Float64,1}, f::Float64, g::oneDeviceArray{Float64,1},
+               A::oneDeviceArray{Float64,2}, frtol::Float64, fatol::Float64,
                fmin::Float64, cgtol::Float64, itermax::Int, delta::Float64, task::Int,
-               B::CuDeviceArray{Float64,2}, L::CuDeviceArray{Float64,2},
-               xc::CuDeviceArray{Float64,1}, s::CuDeviceArray{Float64,1},
-               indfree::CuDeviceArray{Int,1}, gfree::CuDeviceArray{Float64,1},
-               isave::CuDeviceArray{Int,1}, dsave::CuDeviceArray{Float64,1},
-               wa::CuDeviceArray{Float64,1}, iwa::CuDeviceArray{Int,1},
-               wa1::CuDeviceArray{Float64,1}, wa2::CuDeviceArray{Float64,1},
-               wa3::CuDeviceArray{Float64,1}, wa4::CuDeviceArray{Float64,1},
-               wa5::CuDeviceArray{Float64,1})
+               B::oneDeviceArray{Float64,2}, L::oneDeviceArray{Float64,2},
+               xc::oneDeviceArray{Float64,1}, s::oneDeviceArray{Float64,1},
+               indfree::oneDeviceArray{Int,1}, gfree::oneDeviceArray{Float64,1},
+               isave::oneDeviceArray{Int,1}, dsave::oneDeviceArray{Float64,1},
+               wa::oneDeviceArray{Float64,1}, iwa::oneDeviceArray{Int,1},
+               wa1::oneDeviceArray{Float64,1}, wa2::oneDeviceArray{Float64,1},
+               wa3::oneDeviceArray{Float64,1}, wa4::oneDeviceArray{Float64,1},
+               wa5::oneDeviceArray{Float64,1})
     zero = 0.0
     p5 = 0.5
     one = 1.0
@@ -53,7 +53,7 @@
         end
     end
 
-    CUDA.sync_threads()
+    barrier()
 
     # Search for a lower function value.
 
@@ -200,7 +200,7 @@
         dsave[3] = prered
     end
 
-    CUDA.sync_threads()
+    barrier()
 
     return delta, task
 end

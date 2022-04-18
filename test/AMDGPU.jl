@@ -636,10 +636,12 @@ end
         AMDGPU.sync_workgroup()
 
         nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w)
-        for i in 1:n
-            d_nbrpt[i,tx] = nbrpt
-            d_brptmin[i,tx] = brptmin
-            d_brptmax[i,tx] = brptmax
+        if bx == 1
+            for i in 1:n
+                d_nbrpt[i,tx] = nbrpt
+                d_brptmin[i,tx] = brptmin
+                d_brptmax[i,tx] = brptmax
+            end
         end
         AMDGPU.sync_workgroup()
 
@@ -902,6 +904,7 @@ end
         copyto!(d_p, p)
         wait(@roc groupsize=n gridsize=n*nblk dtrqsol_test(Val(n),d_x,d_p,d_out,delta))
 
+        d_out = d_out |> Array
         @test norm(sigma .- d_out) <= 1e-10
     end
 end
@@ -1024,7 +1027,6 @@ end
         AMDGPU.sync_workgroup()
 
         v = ExaTronKernels.dgpnorm(n, x, xl, xu, g)
-        # v = 0.0
         if bx == 1
             d_out[tx] = v
         end
@@ -1174,7 +1176,7 @@ end
 
 @testset "driver_kernel" begin
     @inline function eval_f(n, x, dA, dc)
-        f = 0
+        f = 0.0
         @inbounds for i=1:n
             @inbounds for j=1:n
                 f += x[i]*dA[i,j]*x[j]
@@ -1190,7 +1192,7 @@ end
 
     @inline function eval_g(n, x, g, dA, dc)
         @inbounds for i=1:n
-            gval = 0
+            gval = 0.0
             @inbounds for j=1:n
                 gval += dA[i,j]*x[j]
             end

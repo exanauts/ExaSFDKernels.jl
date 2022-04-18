@@ -2,7 +2,9 @@
     tx = get_local_id()
 
     # Ignore incx for now.
-    @inbounds dx[tx] = da*dx[tx]
+    if tx <= n
+        @inbounds dx[tx] = da*dx[tx]
+    end
     barrier()
 
     return

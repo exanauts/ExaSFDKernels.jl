@@ -5,7 +5,7 @@
     # For very small n, we may want to gauge how much gains
     # we could get by run it in parallel.
 
-    v = 0
+    v = 0.0
     @inbounds for i=1:n
         v += dx[i]*dy[i]
     end
