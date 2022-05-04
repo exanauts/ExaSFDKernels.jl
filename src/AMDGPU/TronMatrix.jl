@@ -13,9 +13,9 @@ end
 
 @inline function ExaTronKernels.Base.fill!(w::ROCDeviceArray{Float64,1}, val::Float64)
     tx = workitemIdx().x
-    ty = workitemIdx().y
+    bx = workgroupIdx().x
 
-    if tx <= length(w) && ty == 1
+    if tx <= length(w) && bx == 1
         @inbounds w[tx] = val
     end
     AMDGPU.sync_workgroup()

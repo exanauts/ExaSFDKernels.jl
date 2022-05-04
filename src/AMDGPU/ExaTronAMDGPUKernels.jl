@@ -2,8 +2,7 @@ module ExaTronAMDGPUKernels
     macro amdlocalmem(T, n)
         id = gensym("static_shmem")
         ex = quote
-            s = $(QuoteNode(id))
-            ROCDeviceArray(($n,),alloc_local(s, $T, $n))
+            ROCDeviceArray(($n,),alloc_local($(QuoteNode(id)), $T, $n))
         end
         esc(ex)
     end
@@ -11,8 +10,7 @@ module ExaTronAMDGPUKernels
     macro amdlocalmem(T, n1, n2)
         id = gensym("static_shmem")
         ex = quote
-            s = $(QuoteNode(id))
-            ROCDeviceArray(($n1,$n2),alloc_local(s, $T, $n1 * $n2))
+            ROCDeviceArray(($n1,$n2),alloc_local($(QuoteNode(id)), $T, $n1 * $n2))
         end
         esc(ex)
     end

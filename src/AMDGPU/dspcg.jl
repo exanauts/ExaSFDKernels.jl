@@ -10,7 +10,7 @@
                wa5::ROCDeviceArray{Float64,1})
 
     tx = workitemIdx().x
-    nfree = @amdlocalmem(Int, n)
+    nfree = @amdlocalmem(Int, 1)
 
     zero = 0.0
     one = 1.0

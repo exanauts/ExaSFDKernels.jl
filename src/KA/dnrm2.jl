@@ -8,6 +8,7 @@
 
     @synchronize
     v = sqrt(v)
+    @synchronize
 
     return v
 end

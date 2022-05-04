@@ -109,6 +109,7 @@
             alpha = max(two*alpha,alphas)
         end
     end
+    AMDGPU.sync_workgroup()
 
     return
 end

@@ -2,7 +2,7 @@
                          xu::ROCDeviceArray{Float64,1}, g::ROCDeviceArray{Float64,1})
     tx = workitemIdx().x
 
-    inf_norm = @amdlocalmem(Float64, n)
+    inf_norm = @amdlocalmem(Float64, 1)
     AMDGPU.sync_workgroup()
     res = 0.0
 
