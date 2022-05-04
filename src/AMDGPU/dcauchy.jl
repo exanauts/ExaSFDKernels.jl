@@ -1,8 +1,8 @@
-@inline function dcauchy(n::Int, x::CuDeviceArray{Float64,1},
-                         xl::CuDeviceArray{Float64}, xu::CuDeviceArray{Float64,1},
-                         A::CuDeviceArray{Float64,2}, g::CuDeviceArray{Float64,1},
-                         delta::Float64, alpha::Float64, s::CuDeviceArray{Float64,1},
-                         wa::CuDeviceArray{Float64,1})
+@inline function ExaTronKernels.dcauchy(n::Int, x::ROCDeviceArray{Float64,1},
+                         xl::ROCDeviceArray{Float64,1}, xu::ROCDeviceArray{Float64,1},
+                         A::ROCDeviceArray{Float64,2}, g::ROCDeviceArray{Float64,1},
+                         delta::Float64, alpha::Float64, s::ROCDeviceArray{Float64,1},
+                         wa::ROCDeviceArray{Float64,1})
     p5 = 0.5
     one = 1.0
 

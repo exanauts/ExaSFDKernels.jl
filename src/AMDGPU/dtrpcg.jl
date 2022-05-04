@@ -1,13 +1,13 @@
-@inline function dtrpcg(n::Int, A::CuDeviceArray{Float64,2},
-                        g::CuDeviceArray{Float64,1}, delta::Float64,
-                        L::CuDeviceArray{Float64,2},
+@inline function ExaTronKernels.dtrpcg(n::Int, A::ROCDeviceArray{Float64,2},
+                        g::ROCDeviceArray{Float64,1}, delta::Float64,
+                        L::ROCDeviceArray{Float64,2},
                         tol::Float64, stol::Float64, itermax::Int,
-                        w::CuDeviceArray{Float64,1},
-                        p::CuDeviceArray{Float64,1},
-                        q::CuDeviceArray{Float64,1},
-                        r::CuDeviceArray{Float64,1},
-                        t::CuDeviceArray{Float64,1},
-                        z::CuDeviceArray{Float64,1})
+                        w::ROCDeviceArray{Float64,1},
+                        p::ROCDeviceArray{Float64,1},
+                        q::ROCDeviceArray{Float64,1},
+                        r::ROCDeviceArray{Float64,1},
+                        t::ROCDeviceArray{Float64,1},
+                        z::ROCDeviceArray{Float64,1})
   zero = 0.0
   one = 1.0
 

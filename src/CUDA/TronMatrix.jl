@@ -13,9 +13,9 @@ end
 
 @inline function ExaTronKernels.Base.fill!(w::CuDeviceArray{Float64,1}, val::Float64)
     tx = threadIdx().x
-    ty = threadIdx().y
+    bx = blockIdx().x
 
-    if tx <= length(w) && ty == 1
+    if tx <= length(w) && bx == 1
         @inbounds w[tx] = val
     end
     CUDA.sync_threads()

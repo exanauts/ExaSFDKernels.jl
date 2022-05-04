@@ -1,10 +1,14 @@
 using AMDGPU
-using CUDA
 using ExaTronKernels
-using KernelAbstractions
 using LinearAlgebra
 using Random
 using Test
+
+try
+    tmp = ROCArray{Float64}(undef, 10)
+catch e
+    throw(e)
+end
 
 """
 Test ExaTron's internal routines written for GPU.
@@ -46,41 +50,32 @@ itermax = 10
 n = 4
 nblk = 4
 
-if has_cuda_gpu()
-    using CUDAKernels
-    device = CUDADevice()
-    AT = CuArray
-elseif has_rocm_gpu()
-    using ROCKernels
-    device = ROCDevice()
-    AT = ROCArray
-else
-    device = CPU()
-    error("CPU KA implementation is currently broken for nested functions")
-end
-
-
 @testset "dicf" begin
-@kernel function dicf_test(::Val{n}, d_in,
-                    d_out) where {n}
-    tx = @index(Local, Linear)
-    bx = @index(Group, Linear)
+    function dicf_test(
+        ::Val{n},
+        d_in::ROCDeviceArray{Float64},
+        d_out::ROCDeviceArray{Float64}
+        ) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-    L = @localmem Float64 (n,n)
-    for i in 1:n
-        L[tx,i] = d_in[tx,i]
-    end
-    @synchronize
-
-    # Test Cholesky factorization.
-    ExaTronKernels.dicf(n,L,tx)
-    if bx == 1
+        L = @amdlocalmem(Float64, n, n)
         for i in 1:n
-            d_out[tx,i] = L[tx,i]
+            L[i,tx] = d_in[i,tx]
         end
+        AMDGPU.sync_workgroup()
+
+        # Test Cholesky factorization.
+        ExaTronKernels.dicf(n,L)
+
+        if bx == 1
+            for i in 1:n
+                d_out[i,tx] = L[i,tx]
+            end
+        end
+        AMDGPU.sync_workgroup()
+        return
     end
-    @synchronize
-end
 
     for i=1:itermax
         L = tril(rand(n,n))
@@ -89,11 +84,12 @@ end
         tron_A = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_A.vals .= A
 
-        d_in = AT{Float64,2}(undef, (n,n))
-        d_out = AT{Float64,2}(undef, (n,n))
+        d_in = ROCArray{Float64,2}(undef, (n,n))
+        d_out = ROCArray{Float64,2}(undef, (n,n))
         copyto!(d_in, tron_A.vals)
-        wait(dicf_test(device, n)(Val{n}(), d_in, d_out, ndrange=(n,nblk), dependencies=Event(device)))
-        h_L = d_out |> Array
+        wait(@roc groupsize=n gridsize=n*nblk dicf_test(Val(n),d_in,d_out))
+        h_L = zeros(n,n)
+        copyto!(h_L, d_out)
 
         tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_L.vals .= tron_A.vals
@@ -105,34 +101,39 @@ end
 
         @test norm(tron_A.vals .- tril(h_L)*transpose(tril(h_L))) <= 1e-10
         @test norm(tril(h_L) .- transpose(triu(h_L))) <= 1e-10
-        @test norm(tril(tron_L.vals) .- tril(h_L)) <= 1e-9
+        @test norm(tril(tron_L.vals) .- tril(h_L)) <= 1e-10
     end
 end
 
 @testset "dicfs" begin
-    @kernel function dicfs_test(::Val{n}, alpha::Float64,
-                        dA,
-                        d_out) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dicfs_test(
+        ::Val{n},
+        alpha::Float64,
+        dA::ROCDeviceArray{Float64},
+        d_out::ROCDeviceArray{Float64}
+        ) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        wa1 = @localmem Float64 (n,)
-        wa2 = @localmem Float64 (n,)
-        A = @localmem Float64 (n,n)
-        L = @localmem Float64 (n,n)
+        wa1 = @amdlocalmem(Float64, n)
+        wa2 = @amdlocalmem(Float64, n)
+        A = @amdlocalmem(Float64, n, n)
+        L = @amdlocalmem(Float64, n, n)
 
-        for i in 1:n
-            A[tx,i] = dA[tx,i]
+        @inbounds for j=1:n
+            A[j,tx] = dA[j,tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.dicfs(n, alpha, A, L, wa1, wa2, tx)
-        if bx <= 1
-            for i in 1:n
-                d_out[tx,i] = L[tx,i]
+        ExaTronKernels.dicfs(n, alpha, A, L, wa1, wa2)
+        if bx == 1
+            @inbounds for j=1:n
+                d_out[j,tx] = L[j,tx]
             end
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
+
+        return
     end
 
     for i=1:itermax
@@ -143,16 +144,17 @@ end
         tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_A.vals .= A
 
-        dA = AT{Float64,2}(undef, (n,n))
-        d_out = AT{Float64,2}(undef, (n,n))
+        dA = ROCArray{Float64,2}(undef, (n,n))
+        d_out = ROCArray{Float64,2}(undef, (n,n))
         alpha = 1.0
         copyto!(dA, tron_A.vals)
-        wait(dicfs_test(device, n)(Val{n}(),alpha,dA,d_out,ndrange=(n, nblk),dependencies=Event(device)))
-        h_L = d_out |> Array
+        wait(@roc groupsize=n gridsize=n*nblk dicfs_test(Val(n),alpha,dA,d_out))
+        h_L = zeros(n,n)
+        copyto!(h_L, d_out)
         iwa = zeros(Int, 3*n)
         wa1 = zeros(n)
         wa2 = zeros(n)
-        ExaTronKernels.dicfs(n, n*n, tron_A, tron_L, 5, alpha, iwa, wa1, wa2)
+        ExaTronKernels.dicfs(n, n^2, tron_A, tron_L, 5, alpha, iwa, wa1, wa2)
 
         @test norm(tril(h_L) .- transpose(triu(h_L))) <= 1e-10
         @test norm(tril(tron_L.vals) .- tril(h_L)) <= 1e-9
@@ -162,7 +164,7 @@ end
             tron_A.vals[j,j] = -tron_A.vals[j,j]
         end
         copyto!(dA, tron_A.vals)
-        wait(dicfs_test(device, n)(Val{n}(),alpha,dA,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dicfs_test(Val(n),alpha,dA,d_out))
         copyto!(h_L, d_out)
         ExaTronKernels.dicfs(n, n^2, tron_A, tron_L, 5, alpha, iwa, wa1, wa2)
 
@@ -172,26 +174,26 @@ end
 end
 
 @testset "dcauchy" begin
-    @kernel function dcauchy_test(::Val{n},dx,
-                            dl,
-                            du,
-                            dA,
-                            dg,
+    function dcauchy_test(::Val{n},dx::ROCDeviceArray{Float64},
+                            dl::ROCDeviceArray{Float64},
+                            du::ROCDeviceArray{Float64},
+                            dA::ROCDeviceArray{Float64},
+                            dg::ROCDeviceArray{Float64},
                             delta::Float64,
                             alpha::Float64,
-                            d_out1,
-                            d_out2
-                            ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+                            d_out1::ROCDeviceArray{Float64},
+                            d_out2::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
-        g = @localmem Float64 (n,)
-        s = @localmem Float64 (n,)
-        wa = @localmem Float64 (n,)
-        A = @localmem Float64 (n,n)
+        x =  @amdlocalmem(Float64, 4)
+        xl = @amdlocalmem(Float64, 4) 
+        xu = @amdlocalmem(Float64, 4) 
+        g =  @amdlocalmem(Float64, 4) 
+        s =  @amdlocalmem(Float64, 4) 
+        wa = @amdlocalmem(Float64, 4) 
+        A =  @amdlocalmem(Float64, 4, 4)
+
         for i in 1:n
             A[tx,i] = dA[tx,i]
         end
@@ -200,12 +202,14 @@ end
         xu[tx] = du[tx]
         g[tx] = dg[tx]
 
-        alpha = ExaTronKernels.dcauchy(n,x,xl,xu,A,g,delta,alpha,s,wa,tx)
+        alpha = ExaTronKernels.dcauchy(n,x,xl,xu,A,g,delta,alpha,s,wa)
         if bx == 1
             d_out1[tx] = s[tx]
             d_out2[tx] = alpha
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
+
+        return
     end
 
     for i=1:itermax
@@ -222,19 +226,19 @@ end
         alpha = 1.0
         delta = 2.0*norm(g)
 
-        dx = AT{Float64}(undef, n)
-        dl = AT{Float64}(undef, n)
-        du = AT{Float64}(undef, n)
-        dg = AT{Float64}(undef, n)
-        dA = AT{Float64,2}(undef, (n,n))
-        d_out1 = AT{Float64}(undef, n)
-        d_out2 = AT{Float64}(undef, n)
+        dx = ROCArray{Float64}(undef, n)
+        dl = ROCArray{Float64}(undef, n)
+        du = ROCArray{Float64}(undef, n)
+        dg = ROCArray{Float64}(undef, n)
+        dA = ROCArray{Float64,2}(undef, (n,n))
+        d_out1 = ROCArray{Float64}(undef, n)
+        d_out2 = ROCArray{Float64}(undef, n)
         copyto!(dx, x)
         copyto!(dl, xl)
         copyto!(du, xu)
         copyto!(dg, g)
         copyto!(dA, A.vals)
-        wait(dcauchy_test(device, n)(Val{n}(),dx,dl,du,dA,dg,delta,alpha,d_out1,d_out2,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dcauchy_test(Val(n),dx,dl,du,dA,dg,delta,alpha,d_out1,d_out2))
         h_s = zeros(n)
         h_alpha = zeros(n)
         copyto!(h_s, d_out1)
@@ -248,41 +252,43 @@ end
 end
 
 @testset "dtrpcg" begin
-    @kernel function dtrpcg_test(::Val{n}, delta::Float64, tol::Float64,
-                            stol::Float64, d_in,
-                            d_g,
-                            d_out_L,
-                            d_out
-                            ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dtrpcg_test(::Val{n}, delta::Float64, tol::Float64,
+                            stol::Float64, d_in::ROCDeviceArray{Float64},
+                            d_g::ROCDeviceArray{Float64},
+                            d_out_L::ROCDeviceArray{Float64},
+                            d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        A = @localmem Float64 (n,n)
-        L = @localmem Float64 (n,n)
+        A = @amdlocalmem(Float64, n, n)
+        L = @amdlocalmem(Float64, n, n)
 
-        g = @localmem Float64 (n,)
-        w = @localmem Float64 (n,)
-        p = @localmem Float64 (n,)
-        q = @localmem Float64 (n,)
-        r = @localmem Float64 (n,)
-        t = @localmem Float64 (n,)
-        z = @localmem Float64 (n,)
+        g = @amdlocalmem(Float64, n)
+        w = @amdlocalmem(Float64, n)
+        p = @amdlocalmem(Float64, n)
+        q = @amdlocalmem(Float64, n)
+        r = @amdlocalmem(Float64, n)
+        t = @amdlocalmem(Float64, n)
+        z = @amdlocalmem(Float64, n)
+
         for i in 1:n
-            A[tx,i] = d_in[tx,i]
-            L[tx,i] = d_in[tx,i]
+            A[i,tx] = d_in[i,tx]
+            L[i,tx] = d_in[i,tx]
         end
         g[tx] = d_g[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.dicf(n,L,tx)
-        info, iters = ExaTronKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z,tx)
+        ExaTronKernels.dicf(n,L)
+        info, iters = ExaTronKernels.dtrpcg(n,A,g,delta,L,tol,stol,n,w,p,q,r,t,z)
         if bx == 1
             d_out[tx] = w[tx]
             for i in 1:n
-                d_out_L[tx,i] = L[tx,i]
+                d_out_L[i,tx] = L[i,tx]
             end
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
+
+        return
     end
 
     delta = 100.0
@@ -303,13 +309,13 @@ end
         z = zeros(n)
         tron_A.vals .= A
         tron_L.vals .= A
-        d_in = AT{Float64,2}(undef, (n,n))
-        d_g = AT{Float64}(undef, n)
-        d_out_L = AT{Float64,2}(undef, (n,n))
-        d_out = AT{Float64}(undef, n)
+        d_in = ROCArray{Float64,2}(undef, (n,n))
+        d_g = ROCArray{Float64}(undef, n)
+        d_out_L = ROCArray{Float64,2}(undef, (n,n))
+        d_out = ROCArray{Float64}(undef, n)
         copyto!(d_in, A)
         copyto!(d_g, g)
-        wait(dtrpcg_test(device, n)(Val{n}(),delta,tol,stol,d_in,d_g,d_out_L,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dtrpcg_test(Val(n),delta,tol,stol,d_in,d_g,d_out_L,d_out))
         h_w = zeros(n)
         h_L = zeros(n,n)
         copyto!(h_L, d_out_L)
@@ -327,44 +333,43 @@ end
 end
 
 @testset "dprsrch" begin
-    @kernel function dprsrch_test(::Val{n},d_x,
-                            d_xl,
-                            d_xu,
-                            d_g,
-                            d_w,
-                            d_A,
-                            d_out1,
-                            d_out2
-                            ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dprsrch_test(::Val{n},d_x::ROCDeviceArray{Float64},
+                            d_xl::ROCDeviceArray{Float64},
+                            d_xu::ROCDeviceArray{Float64},
+                            d_g::ROCDeviceArray{Float64},
+                            d_w::ROCDeviceArray{Float64},
+                            d_A::ROCDeviceArray{Float64},
+                            d_out1::ROCDeviceArray{Float64},
+                            d_out2::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
-        g = @localmem Float64 (n,)
-        w = @localmem Float64 (n,)
-        wa1 = @localmem Float64 (n,)
-        wa2 = @localmem Float64 (n,)
-        A = @localmem Float64 (n,n)
-
+        x = @amdlocalmem(Float64, n)
+        xl = @amdlocalmem(Float64, n)
+        xu = @amdlocalmem(Float64, n)
+        g = @amdlocalmem(Float64, n)
+        w = @amdlocalmem(Float64, n)
+        wa1 = @amdlocalmem(Float64, n)
+        wa2 = @amdlocalmem(Float64, n)
+        A = @amdlocalmem(Float64, n, n)
         for i in 1:n
-            A[tx,i] = d_A[tx,i]
+            A[i,tx] = d_A[i,tx]
         end
         x[tx] = d_x[tx]
         xl[tx] = d_xl[tx]
         xu[tx] = d_xu[tx]
         g[tx] = d_g[tx]
         w[tx] = d_w[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.dprsrch(n, x, xl, xu, A, g, w, wa1, wa2, tx)
+        ExaTronKernels.dprsrch(n, x, xl, xu, A, g, w, wa1, wa2)
         if bx == 1
             d_out1[tx] = x[tx]
             d_out2[tx] = w[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
@@ -380,21 +385,21 @@ end
         wa1 = zeros(n)
         wa2 = zeros(n)
 
-        dx = AT{Float64}(undef, n)
-        dl = AT{Float64}(undef, n)
-        du = AT{Float64}(undef, n)
-        dg = AT{Float64}(undef, n)
-        dw = AT{Float64}(undef, n)
-        dA = AT{Float64,2}(undef, (n,n))
-        d_out1 = AT{Float64}(undef, n)
-        d_out2 = AT{Float64}(undef, n)
+        dx = ROCArray{Float64}(undef, n)
+        dl = ROCArray{Float64}(undef, n)
+        du = ROCArray{Float64}(undef, n)
+        dg = ROCArray{Float64}(undef, n)
+        dw = ROCArray{Float64}(undef, n)
+        dA = ROCArray{Float64,2}(undef, (n,n))
+        d_out1 = ROCArray{Float64}(undef, n)
+        d_out2 = ROCArray{Float64}(undef, n)
         copyto!(dx, x)
         copyto!(dl, xl)
         copyto!(du, xu)
         copyto!(dg, g)
         copyto!(dw, w)
         copyto!(dA, A.vals)
-        wait(dprsrch_test(device, n)(Val{n}(),dx,dl,du,dg,dw,dA,d_out1,d_out2,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dprsrch_test(Val(n),dx,dl,du,dg,dw,dA,d_out1,d_out2))
         h_x = zeros(n)
         h_w = zeros(n)
         copyto!(h_x, d_out1)
@@ -408,34 +413,34 @@ end
 end
 
 @testset "daxpy" begin
-    @kernel function daxpy_test(::Val{n}, da, d_in,
-                        d_out
-                        ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function daxpy_test(::Val{n}, da, d_in::ROCDeviceArray{Float64},
+                        d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        y = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
+        y = @amdlocalmem(Float64, n)
         x[tx] = d_in[tx]
         y[tx] = d_in[tx + n]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.daxpy(n, da, x, 1, y, 1, tx)
+        ExaTronKernels.daxpy(n, da, x, 1, y, 1)
         if bx == 1
             d_out[tx] = y[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
         da = rand(1)[1]
         h_in = rand(2*n)
         h_out = zeros(n)
-        d_in = AT{Float64}(undef, 2*n)
-        d_out = AT{Float64}(undef, n)
+        d_in = ROCArray{Float64}(undef, 2*n)
+        d_out = ROCArray{Float64}(undef, n)
         copyto!(d_in, h_in)
-        wait(daxpy_test(device,n)(Val{n}(),da,d_in,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk daxpy_test(Val(n),da,d_in,d_out))
         copyto!(h_out, d_out)
 
         @test norm(h_out .- (h_in[n+1:2*n] .+ da.*h_in[1:n])) <= 1e-12
@@ -443,70 +448,68 @@ end
 end
 
 @testset "dssyax" begin
-    @kernel function dssyax_test(::Val{n},d_z,
-                            d_in,
-                            d_out
-                            ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dssyax_test(::Val{n},d_z::ROCDeviceArray{Float64},
+                            d_in::ROCDeviceArray{Float64},
+                            d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        z = @localmem Float64 (n,)
-        q = @localmem Float64 (n,)
-        A = @localmem Float64 (n,n)
-
+        z = @amdlocalmem(Float64, n)
+        q = @amdlocalmem(Float64, n)
+        A = @amdlocalmem(Float64, n, n)
         for i in 1:n
-            A[tx,i] = d_in[tx,i]
+            A[i,tx] = d_in[i,tx]
         end
         z[tx] = d_z[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.dssyax(n, A, z, q, tx)
+        ExaTronKernels.dssyax(n, A, z, q)
         if bx == 1
             d_out[tx] = q[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
         z = rand(n)
         h_in = rand(n,n)
         h_out = zeros(n)
-        d_z = AT{Float64}(undef, n)
-        d_in = AT{Float64,2}(undef, (n,n))
-        d_out = AT{Float64}(undef, n)
+        d_z = ROCArray{Float64}(undef, n)
+        d_in = ROCArray{Float64,2}(undef, (n,n))
+        d_out = ROCArray{Float64}(undef, n)
         copyto!(d_z, z)
         copyto!(d_in, h_in)
-        wait(dssyax_test(device,n)(Val{n}(),d_z,d_in,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dssyax_test(Val(n),d_z,d_in,d_out))
         copyto!(h_out, d_out)
-
         @test norm(h_out .- h_in*z) <= 1e-12
     end
 end
 
 @testset "dmid" begin
-    @kernel function dmid_test(::Val{n}, dx,
-                        dl,
-                        du,
-                        d_out
-                        ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dmid_test(::Val{n}, dx::ROCDeviceArray{Float64},
+                        dl::ROCDeviceArray{Float64},
+                        du::ROCDeviceArray{Float64},
+                        d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
+        xl = @amdlocalmem(Float64, n)
+        xu = @amdlocalmem(Float64, n)
         x[tx] = dx[tx]
         xl[tx] = dl[tx]
         xu[tx] = du[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.dmid(n, x, xl, xu, tx)
+        ExaTronKernels.dmid(n, x, xl, xu)
         if bx == 1
             d_out[tx] = x[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
@@ -525,14 +528,14 @@ end
             end
         end
         x_out = zeros(n)
-        dx = AT{Float64}(undef, n)
-        dl = AT{Float64}(undef, n)
-        du = AT{Float64}(undef, n)
-        d_out = AT{Float64}(undef, n)
+        dx = ROCArray{Float64}(undef, n)
+        dl = ROCArray{Float64}(undef, n)
+        du = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64}(undef, n)
         copyto!(dx, x)
         copyto!(dl, xl)
         copyto!(du, xu)
-        wait(dmid_test(device,n)(Val{n}(),dx,dl,du,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dmid_test(Val(n),dx,dl,du,d_out))
         copyto!(x_out, d_out)
 
         ExaTronKernels.dmid(n, x, xl, xu)
@@ -541,33 +544,33 @@ end
 end
 
 @testset "dgpstep" begin
-    @kernel function dgpstep_test(::Val{n},dx,
-                            dl,
-                            du,
+    function dgpstep_test(::Val{n},dx::ROCDeviceArray{Float64},
+                            dl::ROCDeviceArray{Float64},
+                            du::ROCDeviceArray{Float64},
                             alpha::Float64,
-                            dw,
-                            d_out
-                            ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+                            dw::ROCDeviceArray{Float64},
+                            d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
-        w = @localmem Float64 (n,)
-        s = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
+        xl = @amdlocalmem(Float64, n)
+        xu = @amdlocalmem(Float64, n)
+        w = @amdlocalmem(Float64, n)
+        s = @amdlocalmem(Float64, n)
         x[tx] = dx[tx]
         xl[tx] = dl[tx]
         xu[tx] = du[tx]
         w[tx] = dw[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s, tx)
+        ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s)
         if bx == 1
             d_out[tx] = s[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
@@ -594,16 +597,16 @@ end
             end
         end
 
-        dx = AT{Float64}(undef, n)
-        dl = AT{Float64}(undef, n)
-        du = AT{Float64}(undef, n)
-        dw = AT{Float64}(undef, n)
-        d_out = AT{Float64}(undef, n)
+        dx = ROCArray{Float64}(undef, n)
+        dl = ROCArray{Float64}(undef, n)
+        du = ROCArray{Float64}(undef, n)
+        dw = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64}(undef, n)
         copyto!(dx, x)
         copyto!(dl, xl)
         copyto!(du, xu)
         copyto!(dw, w)
-        wait(dgpstep_test(device,n)(Val{n}(),dx,dl,du,alpha,dw,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dgpstep_test(Val(n),dx,dl,du,alpha,dw,d_out))
         copyto!(s_out, d_out)
 
         ExaTronKernels.dgpstep(n, x, xl, xu, alpha, w, s)
@@ -612,37 +615,35 @@ end
 end
 
 @testset "dbreakpt" begin
-    @kernel function dbreakpt_test(::Val{n},dx,
-                            dl,
-                            du,
-                            dw,
-                            d_nbrpt,
-                            d_brptmin,
-                            d_brptmax
-                            ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dbreakpt_test(::Val{n},dx::ROCDeviceArray{Float64},
+                            dl::ROCDeviceArray{Float64},
+                            du::ROCDeviceArray{Float64},
+                            dw::ROCDeviceArray{Float64},
+                            d_nbrpt::ROCDeviceArray{Float64},
+                            d_brptmin::ROCDeviceArray{Float64},
+                            d_brptmax::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
-        w = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
+        xl = @amdlocalmem(Float64, n)
+        xu = @amdlocalmem(Float64, n)
+        w = @amdlocalmem(Float64, n)
         x[tx] = dx[tx]
         xl[tx] = dl[tx]
         xu[tx] = du[tx]
         w[tx] = dw[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w, tx)
-        if bx == 1
-            for i in 1:n
-                d_nbrpt[tx,i] = nbrpt
-                d_brptmin[tx,i] = brptmin
-                d_brptmax[tx,i] = brptmax
-            end
+        nbrpt, brptmin, brptmax = ExaTronKernels.dbreakpt(n, x, xl, xu, w)
+        for i in 1:n
+            d_nbrpt[i,tx] = nbrpt
+            d_brptmin[i,tx] = brptmin
+            d_brptmax[i,tx] = brptmax
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
@@ -654,18 +655,18 @@ end
         h_brptmin = zeros((n,n))
         h_brptmax = zeros((n,n))
 
-        dx = AT{Float64}(undef, n)
-        dl = AT{Float64}(undef, n)
-        du = AT{Float64}(undef, n)
-        dw = AT{Float64}(undef, n)
-        d_nbrpt = AT{Float64,2}(undef, (n,n))
-        d_brptmin = AT{Float64,2}(undef, (n,n))
-        d_brptmax = AT{Float64,2}(undef, (n,n))
+        dx = ROCArray{Float64}(undef, n)
+        dl = ROCArray{Float64}(undef, n)
+        du = ROCArray{Float64}(undef, n)
+        dw = ROCArray{Float64}(undef, n)
+        d_nbrpt = ROCArray{Float64,2}(undef, (n,n))
+        d_brptmin = ROCArray{Float64,2}(undef, (n,n))
+        d_brptmax = ROCArray{Float64,2}(undef, (n,n))
         copyto!(dx, x)
         copyto!(dl, xl)
         copyto!(du, xu)
         copyto!(dw, w)
-        wait(dbreakpt_test(device,n)(Val{n}(),dx,dl,du,dw,d_nbrpt,d_brptmin,d_brptmax,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dbreakpt_test(Val(n),dx,dl,du,dw,d_nbrpt,d_brptmin,d_brptmax))
         copyto!(h_nbrpt, d_nbrpt)
         copyto!(h_brptmin, d_brptmin)
         copyto!(h_brptmax, d_brptmax)
@@ -678,33 +679,34 @@ end
 end
 
 @testset "dnrm2" begin
-    @kernel function dnrm2_test(::Val{n}, d_in,
-                        d_out
-                        ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dnrm2_test(
+        ::Val{n},
+        d_in::ROCDeviceArray{Float64},
+        d_out::ROCDeviceArray{Float64}
+        ) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
         x[tx] = d_in[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        v = ExaTronKernels.dnrm2(n, x, 1, tx)
+        v = ExaTronKernels.dnrm2(n, x, 1)
         if bx == 1
-            for i in 1:n
-                d_out[tx,i] = v
-            end
+            d_out[tx] = v
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     @inbounds for i=1:itermax
         h_in = rand(n)
-        h_out = zeros((n,n))
-        d_in = AT{Float64}(undef, n)
-        d_out = AT{Float64,2}(undef, (n,n))
+        h_out = zeros(n)
+        d_in = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64}(undef, n)
         copyto!(d_in, h_in)
-        wait(dnrm2_test(device,n)(Val{n}(),d_in,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dnrm2_test(Val(n),d_in,d_out))
         copyto!(h_out, d_out)
         xnorm = norm(h_in, 2)
 
@@ -713,22 +715,29 @@ end
 end
 
 @testset "nrm2" begin
-    @kernel function nrm2_test(::Val{n}, d_A, d_out) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function nrm2_test(
+        ::Val{n},
+        d_A::ROCDeviceArray{Float64},
+        d_out::ROCDeviceArray{Float64}
+        ) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        wa = @localmem Float64 (n,)
-        A = @localmem Float64 (n,n)
+        wa = @amdlocalmem(Float64, n)
+        A = @amdlocalmem(Float64, n, n)
+
         for i in 1:n
-            A[tx,i] = d_A[tx,i]
+            A[i,tx] = d_A[i,tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.nrm2!(wa, A, n, tx)
+        ExaTronKernels.nrm2!(wa, A, n)
         if bx == 1
             d_out[tx] = wa[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
+
+        return
     end
 
     @inbounds for i=1:itermax
@@ -740,11 +749,11 @@ end
         tron_A.vals .= A
         ExaTronKernels.nrm2!(wa, tron_A, n)
 
-        d_A = AT{Float64,2}(undef, (n,n))
-        d_out = AT{Float64}(undef, n)
+        d_A = ROCArray{Float64,2}(undef, (n,n))
+        d_out = ROCArray{Float64}(undef, n)
         h_wa = zeros(n)
         copyto!(d_A, A)
-        wait(nrm2_test(device,n)(Val{n}(),d_A,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk nrm2_test(Val(n),d_A,d_out))
         copyto!(h_wa, d_out)
 
         @test norm(wa .- h_wa) <= 1e-10
@@ -752,34 +761,34 @@ end
 end
 
 @testset "dcopy" begin
-    @kernel function dcopy_test(::Val{n}, d_in,
-                        d_out
-                        ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dcopy_test(::Val{n}, d_in::ROCDeviceArray{Float64},
+                        d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        y = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
+        y = @amdlocalmem(Float64, n)
 
         x[tx] = d_in[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.dcopy(n, x, 1, y, 1, tx)
+        ExaTronKernels.dcopy(n, x, 1, y, 1)
 
         if bx == 1
             d_out[tx] = y[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     @inbounds for i=1:itermax
         h_in = rand(n)
         h_out = zeros(n)
-        d_in = AT{Float64}(undef, n)
-        d_out = AT{Float64}(undef, n)
+        d_in = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64}(undef, n)
         copyto!(d_in, h_in)
-        wait(dcopy_test(device,n)(Val{n}(),d_in,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dcopy_test(Val(n),d_in,d_out))
         copyto!(h_out, d_out)
 
         @test !(false in (h_in .== h_out))
@@ -787,36 +796,35 @@ end
 end
 
 @testset "ddot" begin
-    @kernel function ddot_test(::Val{n}, d_in,
-                        d_out
-                        ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function ddot_test(::Val{n}, d_in::ROCDeviceArray{Float64},
+                        d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (4,)
-        y = @localmem Float64 (4,)
+        x = @amdlocalmem(Float64, n) 
+        y = @amdlocalmem(Float64, n) 
         x[tx] = d_in[tx]
         y[tx] = d_in[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
         v = ExaTronKernels.ddot(n, x, 1, y, 1)
-
         if bx == 1
             for i in 1:n
-                d_out[tx,i] = v
+                d_out[i,tx] = v
             end
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     @inbounds for i=1:itermax
         h_in = rand(n)
         h_out = zeros((n,n))
-        d_in = AT{Float64}(undef, n)
-        d_out = AT{Float64,2}(undef, (n,n))
+        d_in = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64,2}(undef, (n,n))
         copyto!(d_in, h_in)
-        wait(ddot_test(device, n)(Val{n}(),d_in,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk ddot_test(Val(n),d_in,d_out))
         copyto!(h_out, d_out)
 
         @test norm(dot(h_in,h_in) .- h_out, 2) <= 1e-10
@@ -824,35 +832,33 @@ end
 end
 
 @testset "dscal" begin
-    @kernel function dscal_test(::Val{n}, da::Float64,
-                        d_in,
-                        d_out
-                        ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dscal_test(::Val{n}, da::Float64,
+                        d_in::ROCDeviceArray{Float64},
+                        d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        if tx <= n
-            x[tx] = d_in[tx]
-        end
-        @synchronize
+        x = @amdlocalmem(Float64, n)
+        x[tx] = d_in[tx]
+        AMDGPU.sync_workgroup()
 
-        ExaTronKernels.dscal(n, da, x, 1, tx)
+        ExaTronKernels.dscal(n, da, x, 1)
         if bx == 1
             d_out[tx] = x[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
         h_in = rand(n)
         h_out = zeros(n)
         da = rand(1)[1]
-        d_in = AT{Float64}(undef, n)
-        d_out = AT{Float64}(undef, n)
+        d_in = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64}(undef, n)
         copyto!(d_in, h_in)
-        wait(dscal_test(device,n)(Val{n}(),da,d_in,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dscal_test(Val(n),da,d_in,d_out))
         copyto!(h_out, d_out)
 
         @test norm(h_out .- (da.*h_in)) <= 1e-12
@@ -860,28 +866,27 @@ end
 end
 
 @testset "dtrqsol" begin
-    @kernel function dtrqsol_test(::Val{n}, d_x,
-                            d_p,
-                            d_out,
-                            delta::Float64
-                            ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dtrqsol_test(::Val{n}, d_x::ROCDeviceArray{Float64},
+                            d_p::ROCDeviceArray{Float64},
+                            d_out::ROCDeviceArray{Float64},
+                            delta::Float64) where {n}
+        tx = workitemIdx().x
+        bx = workitemIdx().y
 
-        x = @localmem Float64 (n,)
-        p = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
+        p = @amdlocalmem(Float64, n)
 
         x[tx] = d_x[tx]
         p[tx] = d_p[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        sigma = ExaTronKernels.dtrqsol(n, x, p, delta, tx)
+        sigma = ExaTronKernels.dtrqsol(n, x, p, delta)
         if bx == 1
             for i in 1:n
-                d_out[tx,i] = sigma
+                d_out[i,tx] = sigma
             end
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
     end
 
     for i=1:itermax
@@ -890,69 +895,68 @@ end
         sigma = abs(rand(1)[1])
         delta = norm(x .+ sigma.*p)
 
-        d_x = AT{Float64}(undef, n)
-        d_p = AT{Float64}(undef, n)
-        d_out = AT{Float64,2}(undef, (n,n))
+        d_x = ROCArray{Float64}(undef, n)
+        d_p = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64,2}(undef, (n,n))
         copyto!(d_x, x)
         copyto!(d_p, p)
-        wait(dtrqsol_test(device,n)(Val{n}(),d_x,d_p,d_out,delta,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dtrqsol_test(Val(n),d_x,d_p,d_out,delta))
 
-        d_out = d_out |> Array
         @test norm(sigma .- d_out) <= 1e-10
     end
 end
 
 @testset "dspcg" begin
-    @kernel function dspcg_test(::Val{n}, delta::Float64, rtol::Float64,
-                        cg_itermax::Int, dx,
-                        dxl,
-                        dxu,
-                        dA,
-                        dg,
-                        ds,
-                        d_out
-                        ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dspcg_test(::Val{n}, delta::Float64, rtol::Float64,
+                        cg_itermax::Int, dx::ROCDeviceArray{Float64},
+                        dxl::ROCDeviceArray{Float64},
+                        dxu::ROCDeviceArray{Float64},
+                        dA::ROCDeviceArray{Float64},
+                        dg::ROCDeviceArray{Float64},
+                        ds::ROCDeviceArray{Float64},
+                        d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
-        g = @localmem Float64 (n,)
-        s = @localmem Float64 (n,)
-        w = @localmem Float64 (n,)
-        wa1 = @localmem Float64 (n,)
-        wa2 = @localmem Float64 (n,)
-        wa3 = @localmem Float64 (n,)
-        wa4 = @localmem Float64 (n,)
-        wa5 = @localmem Float64 (n,)
-        gfree = @localmem Float64 (n,)
-        indfree = @localmem Int (n,)
-        iwa = @localmem Int (n,)
+        x = @amdlocalmem(Float64, n)
+        xl = @amdlocalmem(Float64, n)
+        xu = @amdlocalmem(Float64, n)
+        g = @amdlocalmem(Float64, n)
+        s = @amdlocalmem(Float64, n)
+        w = @amdlocalmem(Float64, n)
+        wa1 = @amdlocalmem(Float64, n)
+        wa2 = @amdlocalmem(Float64, n)
+        wa3 = @amdlocalmem(Float64, n)
+        wa4 = @amdlocalmem(Float64, n)
+        wa5 = @amdlocalmem(Float64, n)
+        gfree = @amdlocalmem(Float64, n)
+        indfree = @amdlocalmem(Int, n)
+        iwa = @amdlocalmem(Int, 2*n) 
 
-        A = @localmem Float64 (n,n)
-        B = @localmem Float64 (n,n)
-        L = @localmem Float64 (n,n)
+        A = @amdlocalmem(Float64, n, n)
+        B = @amdlocalmem(Float64, n, n)
+        L = @amdlocalmem(Float64, n, n)
 
-        for i in 1:n
-            A[i,tx] = dA[i,tx]
+        @inbounds for j=1:n
+            A[j,tx] = dA[j,tx]
         end
         x[tx] = dx[tx]
         xl[tx] = dxl[tx]
         xu[tx] = dxu[tx]
         g[tx] = dg[tx]
         s[tx] = ds[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
         ExaTronKernels.dspcg(n, delta, rtol, cg_itermax, x, xl, xu,
                         A, g, s, B, L, indfree, gfree, w, iwa,
-                        wa1, wa2, wa3, wa4, wa5, tx)
+                        wa1, wa2, wa3, wa4, wa5)
 
         if bx == 1
             d_out[tx] = x[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
@@ -977,13 +981,13 @@ end
         indfree = zeros(Int, n)
         iwa = zeros(Int, 3*n)
 
-        dx = AT{Float64}(undef, n)
-        dxl = AT{Float64}(undef, n)
-        dxu = AT{Float64}(undef, n)
-        dA = AT{Float64,2}(undef, (n,n))
-        dg = AT{Float64}(undef, n)
-        ds = AT{Float64}(undef, n)
-        d_out = AT{Float64}(undef, n)
+        dx = ROCArray{Float64}(undef, n)
+        dxl = ROCArray{Float64}(undef, n)
+        dxu = ROCArray{Float64}(undef, n)
+        dA = ROCArray{Float64,2}(undef, (n,n))
+        dg = ROCArray{Float64}(undef, n)
+        ds = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64}(undef, n)
 
         copyto!(dx, x)
         copyto!(dxl, xl)
@@ -992,7 +996,7 @@ end
         copyto!(dg, g)
         copyto!(ds, s)
 
-        wait(dspcg_test(device, n)(Val{n}(),delta,rtol,cg_itermax,dx,dxl,dxu,dA,dg,ds,d_out,ndrange=(n,1),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dspcg_test(Val(n),delta,rtol,cg_itermax,dx,dxl,dxu,dA,dg,ds,d_out))
         h_x = zeros(n)
         copyto!(h_x, d_out)
 
@@ -1004,27 +1008,29 @@ end
 end
 
 @testset "dgpnorm" begin
-    @kernel function dgpnorm_test(::Val{n}, dx, dxl, dxu, dg, d_out) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+    function dgpnorm_test(::Val{n}, dx, dxl, dxu, dg, d_out) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
-        g = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
+        xl = @amdlocalmem(Float64, n)
+        xu = @amdlocalmem(Float64, n)
+        g = @amdlocalmem(Float64, n)
 
         x[tx] = dx[tx]
         xl[tx] = dxl[tx]
         xu[tx] = dxu[tx]
         g[tx] = dg[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        v = ExaTronKernels.dgpnorm(n, x, xl, xu, g, tx)
+        v = ExaTronKernels.dgpnorm(n, x, xl, xu, g)
+        # v = 0.0
         if bx == 1
             d_out[tx] = v
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
@@ -1033,18 +1039,18 @@ end
         xu = x .+ abs.(rand(n))
         g = 2.0*rand(n) .- 1.0
 
-        dx = AT{Float64}(undef, n)
-        dxl = AT{Float64}(undef, n)
-        dxu = AT{Float64}(undef, n)
-        dg = AT{Float64}(undef, n)
-        d_out = AT{Float64}(undef, n)
+        dx = ROCArray{Float64}(undef, n)
+        dxl = ROCArray{Float64}(undef, n)
+        dxu = ROCArray{Float64}(undef, n)
+        dg = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64}(undef, n)
 
         copyto!(dx, x)
         copyto!(dxl, xl)
         copyto!(dxu, xu)
         copyto!(dg, g)
 
-        wait(dgpnorm_test(device, n)(Val{n}(), dx, dxl, dxu, dg, d_out, ndrange=(n,n*nblk), dependencies=Event(device)))
+        gptime = @timed wait(@roc groupsize=n gridsize=n*nblk dgpnorm_test(Val(n), dx, dxl, dxu, dg, d_out))
         h_v = zeros(n)
         copyto!(h_v, d_out)
 
@@ -1054,53 +1060,54 @@ end
 end
 
 @testset "dtron" begin
-    @kernel function dtron_test(::Val{n}, f::Float64, frtol::Float64, fatol::Float64, fmin::Float64,
+    function dtron_test(::Val{n}, f::Float64, frtol::Float64, fatol::Float64, fmin::Float64,
                         cgtol::Float64, cg_itermax::Int, delta::Float64, task::Int,
-                        disave, ddsave,
-                        dx, dxl,
-                        dxu, dA,
-                        dg, d_out
-                        ) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+                        disave::ROCDeviceArray{Int}, ddsave::ROCDeviceArray{Float64},
+                        dx::ROCDeviceArray{Float64}, dxl::ROCDeviceArray{Float64},
+                        dxu::ROCDeviceArray{Float64}, dA::ROCDeviceArray{Float64},
+                        dg::ROCDeviceArray{Float64}, d_out::ROCDeviceArray{Float64}) where {n}
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
-        g = @localmem Float64 (n,)
-        xc = @localmem Float64 (n,)
-        s = @localmem Float64 (n,)
-        wa = @localmem Float64 (n,)
-        wa1 = @localmem Float64 (n,)
-        wa2 = @localmem Float64 (n,)
-        wa3 = @localmem Float64 (n,)
-        wa4 = @localmem Float64 (n,)
-        wa5 = @localmem Float64 (n,)
-        gfree = @localmem Float64 (n,)
-        indfree = @localmem Int (n,)
-        iwa = @localmem Int (2*n,)
+        x = @amdlocalmem(Float64, n)
+        xl = @amdlocalmem(Float64, n)
+        xu = @amdlocalmem(Float64, n)
+        g = @amdlocalmem(Float64, n)
+        xc = @amdlocalmem(Float64, n)
+        s = @amdlocalmem(Float64, n)
+        wa = @amdlocalmem(Float64, n)
+        wa1 = @amdlocalmem(Float64, n)
+        wa2 = @amdlocalmem(Float64, n)
+        wa3 = @amdlocalmem(Float64, n)
+        wa4 = @amdlocalmem(Float64, n)
+        wa5 = @amdlocalmem(Float64, n)
+        gfree = @amdlocalmem(Float64, n)
+        indfree = @amdlocalmem(Int, n)
+        iwa = @amdlocalmem(Int, 2*n)
 
-        A = @localmem Float64 (n,n)
-        B = @localmem Float64 (n,n)
-        L = @localmem Float64 (n,n)
+        A = @amdlocalmem(Float64, n, n)
+        B = @amdlocalmem(Float64, n, n)
+        L = @amdlocalmem(Float64, n, n)
 
-        for i in 1:n
-            A[i,tx] = dA[i,tx]
+        @inbounds for j=1:n
+            A[j,tx] = dA[j,tx]
         end
         x[tx] = dx[tx]
         xl[tx] = dxl[tx]
         xu[tx] = dxu[tx]
         g[tx] = dg[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
         ExaTronKernels.dtron(n, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
                         cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
-                        disave, ddsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, tx)
+                        disave, ddsave, wa, iwa, wa1, wa2, wa3, wa4, wa5)
+
         if bx == 1
             d_out[tx] = x[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
 
+        return
     end
 
     for i=1:itermax
@@ -1134,14 +1141,14 @@ end
         tron_B = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
         tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
 
-        dx = AT{Float64}(undef, n)
-        dxl = AT{Float64}(undef, n)
-        dxu = AT{Float64}(undef, n)
-        dA = AT{Float64,2}(undef, (n,n))
-        dg = AT{Float64}(undef, n)
-        disave = AT{Int}(undef, n)
-        ddsave = AT{Float64}(undef, n)
-        d_out = AT{Float64}(undef, n)
+        dx = ROCArray{Float64}(undef, n)
+        dxl = ROCArray{Float64}(undef, n)
+        dxu = ROCArray{Float64}(undef, n)
+        dA = ROCArray{Float64,2}(undef, (n,n))
+        dg = ROCArray{Float64}(undef, n)
+        disave = ROCArray{Int}(undef, n)
+        ddsave = ROCArray{Float64}(undef, n)
+        d_out = ROCArray{Float64}(undef, n)
 
         copyto!(dx, x)
         copyto!(dxl, xl)
@@ -1149,7 +1156,7 @@ end
         copyto!(dA, tron_A.vals)
         copyto!(dg, g)
 
-        wait(dtron_test(device,n)(Val{n}(),f,frtol,fatol,fmin,cgtol,cg_itermax,delta,task,disave,ddsave,dx,dxl,dxu,dA,dg,d_out,ndrange=(n,n*nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk dtron_test(Val(n),f,frtol,fatol,fmin,cgtol,cg_itermax,delta,task,disave,ddsave,dx,dxl,dxu,dA,dg,d_out))
         h_x = zeros(n)
         copyto!(h_x, d_out)
 
@@ -1177,7 +1184,7 @@ end
         @inbounds for i=1:n
             f += x[i]*dc[i]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
         return f
     end
 
@@ -1189,43 +1196,45 @@ end
             end
             g[i] = gval + dc[i]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
         return
     end
 
-    @inline function eval_h(n, scale, x, A, dA, tx)
-        for i in 1:n
-            A[i,tx] = dA[i,tx]
+    @inline function eval_h(n, scale, x, A, dA)
+        tx = workitemIdx().x
+
+        @inbounds for j=1:n
+            A[j,tx] = dA[j,tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
         return
     end
 
-    @inline function driver_kernel(n, max_feval::Int, max_minor::Int,
-                           x, xl,
-                           xu, dA,
-                           dc,
-                           tx)
+    @inline function driver_kernel(N::Val{n}, max_feval::Int, max_minor::Int,
+                            x::ROCDeviceArray{Float64}, xl::ROCDeviceArray{Float64},
+                            xu::ROCDeviceArray{Float64}, dA::ROCDeviceArray{Float64,2},
+                            dc::ROCDeviceArray{Float64}) where {n}
         # We start with a shared memory allocation.
         # The first 3*n*sizeof(Float64) bytes are used for x, xl, and xu.
-        g = @localmem Float64 (n,)
-        xc = @localmem Float64 (n,)
-        s = @localmem Float64 (n,)
-        wa = @localmem Float64 (n,)
-        wa1 = @localmem Float64 (n,)
-        wa2 = @localmem Float64 (n,)
-        wa3 = @localmem Float64 (n,)
-        wa4 = @localmem Float64 (n,)
-        wa5 = @localmem Float64 (n,)
-        gfree = @localmem Float64 (n,)
-        dsave = @localmem Float64 (n,)
-        indfree = @localmem Int (n,)
-        iwa = @localmem Int (2*n,)
-        isave = @localmem Int (n,)
 
-        A = @localmem Float64 (n,n)
-        B = @localmem Float64 (n,n)
-        L = @localmem Float64 (n,n)
+        g = @amdlocalmem(Float64, n)
+        xc = @amdlocalmem(Float64, n)
+        s = @amdlocalmem(Float64, n)
+        wa = @amdlocalmem(Float64, n)
+        wa1 = @amdlocalmem(Float64, n)
+        wa2 = @amdlocalmem(Float64, n)
+        wa3 = @amdlocalmem(Float64, n)
+        wa4 = @amdlocalmem(Float64, n)
+        wa5 = @amdlocalmem(Float64, n)
+        gfree = @amdlocalmem(Float64, n)
+        dsave = @amdlocalmem(Float64, n)
+        indfree = @amdlocalmem(Int, n)
+        iwa = @amdlocalmem(Int, 2*n)
+        isave = @amdlocalmem(Int, n)
+
+        A = @amdlocalmem(Float64, n, n)
+        B = @amdlocalmem(Float64, n, n)
+        L = @amdlocalmem(Float64, n, n)
 
         task = 0
         status = 0
@@ -1261,7 +1270,7 @@ end
 
             if task == 0 || task == 2
                 eval_g(n, x, g, dA, dc)
-                eval_h(n, 1.0, x, A, dA, tx)
+                eval_h(n, 1.0, x, A, dA)
                 ngev += 1
                 nhev += 1
                 minor_iter += 1
@@ -1270,7 +1279,7 @@ end
             # Initialize the trust region bound.
 
             if task == 0
-                gnorm0 = ExaTronKernels.dnrm2(n, g, 1, tx)
+                gnorm0 = ExaTronKernels.dnrm2(n, g, 1)
                 delta = gnorm0
             end
 
@@ -1279,13 +1288,13 @@ end
             if search
                 delta, task = ExaTronKernels.dtron(n, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
                                             cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
-                                            isave, dsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, tx)
+                                            isave, dsave, wa, iwa, wa1, wa2, wa3, wa4, wa5)
             end
 
             # [3] NEWX: a new point was computed.
 
             if task == 3
-                gnorm_inf = ExaTronKernels.dgpnorm(n, x, xl, xu, g, tx)
+                gnorm_inf = ExaTronKernels.dgpnorm(n, x, xl, xu, g)
                 if gnorm_inf <= gtol
                     task = 4
                 end
@@ -1306,26 +1315,27 @@ end
         return status, minor_iter
     end
 
-    @kernel function driver_kernel_test(::Val{n}, max_feval, max_minor,
+    function driver_kernel_test(N::Val{n}, max_feval, max_minor,
                                 dx, dxl, dxu, dA, dc, d_out) where {n}
-        tx = @index(Local, Linear)
-        bx = @index(Group, Linear)
+        tx = workitemIdx().x
+        bx = workgroupIdx().x
 
-        x = @localmem Float64 (n,)
-        xl = @localmem Float64 (n,)
-        xu = @localmem Float64 (n,)
+        x = @amdlocalmem(Float64, n)
+        xl = @amdlocalmem(Float64, n)
+        xu = @amdlocalmem(Float64, n)
 
         x[tx] = dx[tx]
         xl[tx] = dxl[tx]
         xu[tx] = dxu[tx]
-        @synchronize
+        AMDGPU.sync_workgroup()
 
-        status, minor_iter = driver_kernel(n, max_feval, max_minor, x, xl, xu, dA, dc,tx)
+        status, minor_iter = driver_kernel(N, max_feval, max_minor, x, xl, xu, dA, dc)
 
         if bx == 1
             d_out[tx] = x[tx]
         end
-        @synchronize
+        AMDGPU.sync_workgroup()
+        return
     end
 
     max_feval = 500
@@ -1335,12 +1345,12 @@ end
     tron_B = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
     tron_L = ExaTronKernels.TronDenseMatrix{Array{Float64,2}}(n)
 
-    dx = AT{Float64}(undef, n)
-    dxl = AT{Float64}(undef, n)
-    dxu = AT{Float64}(undef, n)
-    dA = AT{Float64,2}(undef, (n,n))
-    dc = AT{Float64}(undef, n)
-    d_out = AT{Float64}(undef, n)
+    dx = ROCArray{Float64}(undef, n)
+    dxl = ROCArray{Float64}(undef, n)
+    dxu = ROCArray{Float64}(undef, n)
+    dA = ROCArray{Float64,2}(undef, (n,n))
+    dc = ROCArray{Float64}(undef, n)
+    d_out = ROCArray{Float64}(undef, n)
 
     for i=1:itermax
         L = tril(rand(n,n))
@@ -1392,8 +1402,7 @@ end
         tron = ExaTronKernels.createProblem(n, xl, xu, nele_hess, eval_f_cb, eval_g_cb, eval_h_cb; :matrix_type=>:Dense, :max_minor=>max_minor)
         copyto!(tron.x, x)
         status = ExaTronKernels.solveProblem(tron)
-
-        wait(driver_kernel_test(device,n)(Val{n}(),max_feval,max_minor,dx,dxl,dxu,dA,dc,d_out,ndrange=(n,nblk),dependencies=Event(device)))
+        wait(@roc groupsize=n gridsize=n*nblk driver_kernel_test(Val(n),max_feval,max_minor,dx,dxl,dxu,dA,dc,d_out))
         h_x = zeros(n)
         copyto!(h_x, d_out)
 
