@@ -53,8 +53,8 @@ nblk = 4
 @testset "dicf" begin
     function dicf_test(n::Int, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         L = CuDynamicSharedArray(Float64, (n,n))
         for i in 1:n
@@ -106,8 +106,8 @@ end
     function dicfs_test(n::Int, alpha::Float64,
                         dA::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         wa1 = CuDynamicSharedArray(Float64, n)
         wa2 = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -177,8 +177,8 @@ end
                             alpha::Float64,
                             d_out1::CuDeviceArray{Float64},
                             d_out2::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -251,8 +251,8 @@ end
                             d_g::CuDeviceArray{Float64},
                             d_out_L::CuDeviceArray{Float64},
                             d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         A = CuDynamicSharedArray(Float64, (n,n))
         L = CuDynamicSharedArray(Float64, (n,n), (n^2)*sizeof(Float64))
@@ -335,8 +335,8 @@ end
                             d_A::CuDeviceArray{Float64},
                             d_out1::CuDeviceArray{Float64},
                             d_out2::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -409,8 +409,8 @@ end
 @testset "daxpy" begin
     function daxpy_test(n::Int, da, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         y = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -445,8 +445,8 @@ end
     function dssyax_test(n::Int,d_z::CuDeviceArray{Float64},
                             d_in::CuDeviceArray{Float64},
                             d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         z = CuDynamicSharedArray(Float64, n)
         q = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -487,8 +487,8 @@ end
                         dl::CuDeviceArray{Float64},
                         du::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -545,8 +545,8 @@ end
                             alpha::Float64,
                             dw::CuDeviceArray{Float64},
                             d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -617,8 +617,8 @@ end
                             d_nbrpt::CuDeviceArray{Float64},
                             d_brptmin::CuDeviceArray{Float64},
                             d_brptmax::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -676,8 +676,8 @@ end
 @testset "dnrm2" begin
     function dnrm2_test(n::Int, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         x[tx] = d_in[tx]
@@ -708,8 +708,8 @@ end
 
 @testset "nrm2" begin
     function nrm2_test(n::Int, d_A::CuDeviceArray{Float64}, d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         wa = CuDynamicSharedArray(Float64, n)
         A = CuDynamicSharedArray(Float64, (n,n), n*sizeof(Float64))
@@ -751,8 +751,8 @@ end
 @testset "dcopy" begin
     function dcopy_test(n::Int, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         y = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -786,8 +786,8 @@ end
 @testset "ddot" begin
     function ddot_test(n::Int, d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         y = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -823,8 +823,8 @@ end
     function dscal_test(n::Int, da::Float64,
                         d_in::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         x[tx] = d_in[tx]
@@ -858,8 +858,8 @@ end
                             d_p::CuDeviceArray{Float64},
                             d_out::CuDeviceArray{Float64},
                             delta::Float64)
-        tx = threadIdx().x
-        ty = threadIdx().y
+        tx = CUDA.threadIdx().x
+        ty = CUDA.threadIdx().y
 
         x = CuDynamicSharedArray(Float64, n)
         p = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -901,8 +901,8 @@ end
                         dg::CuDeviceArray{Float64},
                         ds::CuDeviceArray{Float64},
                         d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -995,8 +995,8 @@ end
 
 @testset "dgpnorm" begin
     function dgpnorm_test(n, dx, dxl, dxu, dg, d_out)
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -1051,8 +1051,8 @@ end
                         dx::CuDeviceArray{Float64}, dxl::CuDeviceArray{Float64},
                         dxu::CuDeviceArray{Float64}, dA::CuDeviceArray{Float64},
                         dg::CuDeviceArray{Float64}, d_out::CuDeviceArray{Float64})
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
@@ -1186,7 +1186,7 @@ end
     end
 
     function eval_h(n, scale, x, A, dA)
-        tx = threadIdx().x
+        tx = CUDA.threadIdx().x
 
         @inbounds for j=1:n
             A[j,tx] = dA[j,tx]
@@ -1302,8 +1302,8 @@ end
 
     function driver_kernel_test(n, max_feval, max_minor,
                                 dx, dxl, dxu, dA, dc, d_out)
-        tx = threadIdx().x
-        bx = blockIdx().x
+        tx = CUDA.threadIdx().x
+        bx = CUDA.blockIdx().x
 
         x = CuDynamicSharedArray(Float64, n)
         xl = CuDynamicSharedArray(Float64, n, n*sizeof(Float64))
