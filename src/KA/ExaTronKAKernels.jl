@@ -23,5 +23,4 @@ module ExaTronKAKernels
     include("dtrpcg.jl")
     include("dspcg.jl")
     include("dtron.jl")
-    ExaTronKernels.supports(::ExaTronKernels.KAKernels) = true
 end

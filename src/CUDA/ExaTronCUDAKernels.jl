@@ -22,5 +22,4 @@ module ExaTronCUDAKernels
     include("dspcg.jl")
     include("dtron.jl")
     include("TronMatrix.jl")
-    ExaTronKernels.supports(::ExaTronKernels.CUDAKernels) = true
 end

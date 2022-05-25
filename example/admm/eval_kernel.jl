@@ -663,7 +663,7 @@ end
         g4 += param[12,I]*(qji - param[20,I])*(-dqji_dx)
         g4 += param[16,I]*(x[4] - param[24,I])
 
-        if tx == 1 && ty == 1
+        if tx == 1 
             g[1] = scale*g1
             g[2] = scale*g2
             g[3] = scale*g3
@@ -699,7 +699,7 @@ end
         pji = YttR*x[2]^2 + YtfR*vi_vj_cos - YtfI*vi_vj_sin
         qji = -YttI*x[2]^2 - YtfI*vi_vj_cos - YtfR*vi_vj_sin
 
-        if tx == 1 && ty == 1
+        if tx == 1 
             # d2f_dvidvi
 
             dpij_dvi = 2*YffR*x[1] + YftR*x[2]*cos_ij + YftI*x[2]*sin_ij
