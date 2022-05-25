@@ -38,5 +38,4 @@ module ExaTronAMDGPUKernels
     include("dspcg.jl")
     include("dtron.jl")
     include("TronMatrix.jl")
-    ExaTronKernels.supports(::ExaTronKernels.AMDGPUKernels) = true
 end

@@ -2,13 +2,6 @@ module ExaTronKernels
     using LinearAlgebra
     using Requires
 
-    abstract type AbstractKernels end
-    struct CUDAKernels   <: AbstractKernels end
-    struct AMDGPUKernels <: AbstractKernels end
-    struct OneAPIKernels <: AbstractKernels end
-    struct KAKernels     <: AbstractKernels end
-    supports(::AbstractKernels) = false
-    export supports
     export daxpy, dcopy, ddot, dmid, dnrm2, dgpnorm, dscal, dssyax, dnsol, dtsol, dtrqsol, dbreakpt, dgpstep
     export dicf, dicfs, dprsrch, dcauchy, dtrpcg, dspcg, dtron
     
