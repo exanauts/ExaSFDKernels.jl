@@ -3,7 +3,7 @@
                          A, g,
                          delta::Float64, alpha::Float64, s,
                          wa,
-                         tx)
+                         I, J)
     p5 = 0.5
     one = 1.0
 
@@ -18,20 +18,20 @@
 
     # Find the minimal and maximal break-point on x - alpha*g.
 
-    dcopy(n,g,1,wa,1,tx)
-    dscal(n,-one,wa,1,tx)
-    nbrpt,brptmin,brptmax = dbreakpt(n,x,xl,xu,wa,tx)
+    dcopy(n,g,1,wa,1,I,J)
+    dscal(n,-one,wa,1,I,J)
+    nbrpt,brptmin,brptmax = dbreakpt(n,x,xl,xu,wa,I,J)
 
     # Evaluate the initial alpha and decide if the algorithm
     # must interpolate or extrapolate.
 
-    dgpstep(n,x,xl,xu,-alpha,g,s,tx) # s = P(x - alpha*g) - x
-    if dnrm2(n,s,1,tx) > delta
+    dgpstep(n,x,xl,xu,-alpha,g,s,I,J) # s = P(x - alpha*g) - x
+    if dnrm2(n,s,1,I,J) > delta
         interp = true
     else
-        dssyax(n, A, s, wa,tx)
-        gts = ddot(n,g,1,s,1,tx)
-        q = p5*ddot(n,s,1,wa,1,tx) + gts
+        dssyax(n, A, s, wa,I,J)
+        gts = ddot(n,g,1,s,1,I,J)
+        q = p5*ddot(n,s,1,wa,1,I,J) + gts
         interp = (q >= mu0*gts)
     end
 
@@ -48,11 +48,11 @@
             # will be replaced in future versions of the code.
 
             alpha = interpf*alpha
-            dgpstep(n,x,xl,xu,-alpha,g,s,tx)
-            if dnrm2(n,s,1,tx) <= delta
-                dssyax(n, A, s,wa,tx)
-                gts = ddot(n,g,1,s,1,tx)
-                q = p5*ddot(n,s,1,wa,1,tx) + gts
+            dgpstep(n,x,xl,xu,-alpha,g,s,I,J)
+            if dnrm2(n,s,1,I,J) <= delta
+                dssyax(n, A, s,wa,I,J)
+                gts = ddot(n,g,1,s,1,I,J)
+                q = p5*ddot(n,s,1,wa,1,I,J) + gts
                 search = (q > mu0*gts)
             end
         end
@@ -69,11 +69,11 @@
             # will be replaced in future versions of the code.
 
             alpha = extrapf*alpha
-            dgpstep(n,x,xl,xu,-alpha,g,s,tx)
-            if dnrm2(n,s,1,tx) <= delta
-                dssyax(n, A, s, wa,tx)
-                gts = ddot(n,g,1,s,1,tx)
-                q = p5*ddot(n,s,1,wa,1,tx) + gts
+            dgpstep(n,x,xl,xu,-alpha,g,s,I,J)
+            if dnrm2(n,s,1,I,J) <= delta
+                dssyax(n, A, s, wa,I,J)
+                gts = ddot(n,g,1,s,1,I,J)
+                q = p5*ddot(n,s,1,wa,1,I,J) + gts
                 if q < mu0*gts
                     search = true
                     alphas = alpha
@@ -86,7 +86,7 @@
         # Recover the last successful step.
 
         alpha = alphas
-        dgpstep(n,x,xl,xu,-alpha,g,s,tx)
+        dgpstep(n,x,xl,xu,-alpha,g,s,I,J)
     end
 
     return alpha

@@ -102,7 +102,7 @@ function check_power_balance_violation(env::AdmmEnv, xbar_)
     return max_viol_real, max_viol_reactive
 end
 
-function get_branch_bus_index(data::OPFData; device=KA.CPU())
+function get_branch_bus_index(data::OPFData, device=KA.CPU())
     lines = data.lines
     BusIdx = data.BusIdx
     nline = length(lines)
@@ -750,7 +750,8 @@ function admm_solve!(env::AdmmEnv, sol::SolutionTwoLevel; outer_iterlim=10, inne
                                                               u_curr, xbar_curr, zu_curr, lu_curr, rho_u,
                                                               shift_lines, env.membuf, mod.YffR, mod.YffI, mod.YftR, mod.YftI,
                                                               mod.YttR, mod.YttI, mod.YtfR, mod.YtfI, mod.FrBound, mod.ToBound, mod.brBusIdx,
-                                                              dependencies=Event(env.device))
+                                                              dependencies=Event(env.device)
+                                                              )
                     wait(ev)
                 else
                     # tgpu = CUDA.@timed @cuda threads=32 blocks=nblk_br shmem=shmem_size auglag_kernel(mod.n, inner, par.max_auglag, mod.line_start, scale, par.mu_max,
@@ -894,9 +895,9 @@ function admm_solve!(env::AdmmEnv, sol::SolutionTwoLevel; outer_iterlim=10, inne
 
     if par.verbose > 0
         # Test feasibility of global variable xbar:
-        pg_err, qg_err = check_generator_bounds(env, xbar_curr)
-        vm_err = check_voltage_bounds(env, xbar_curr)
-        real_err, reactive_err = check_power_balance_violation(env, xbar_curr)
+        pg_err, qg_err = check_generator_bounds(env, Array(xbar_curr))
+        vm_err = check_voltage_bounds(env, Array(xbar_curr))
+        real_err, reactive_err = check_power_balance_violation(env, Array(xbar_curr))
         @printf(" ** Violations of global variable xbar\n")
         @printf("Real power generator bounds     = %.6e\n", pg_err)
         @printf("Reactive power generator bounds = %.6e\n", qg_err)
@@ -925,11 +926,11 @@ end
 function admm_rect_gpu_two_level(
     case::String;
     outer_iterlim=10, inner_iterlim=800, rho_pq=400.0, rho_va=40000.0, scale=1e-4,
-    use_gpu=false, use_polar=true, allow_infeas=false, rho_sigma=1e8,
+    device=KA.CPU(), use_polar=true, allow_infeas=false, rho_sigma=1e8,
     gpu_no=0, verbose=1, outer_eps=2e-4
 )
     env = AdmmEnv(
-        case, use_gpu, rho_pq, rho_va; use_polar=use_polar, use_twolevel=true,
+        case, device, rho_pq, rho_va; use_polar=use_polar, use_twolevel=true,
         allow_infeas=allow_infeas, rho_sigma=rho_sigma,
         gpu_no=gpu_no, verbose=verbose,
     )

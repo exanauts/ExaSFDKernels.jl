@@ -1,6 +1,7 @@
 module ExaTronKAKernels
     using ..ExaTronKernels
     using ..KernelAbstractions
+    using ..CUDA
     const KA = KernelAbstractions
     include("architecture.jl")
     include("daxpy.jl")
@@ -23,5 +24,4 @@ module ExaTronKAKernels
     include("dtrpcg.jl")
     include("dspcg.jl")
     include("dtron.jl")
-    ExaTronKernels.supports(::ExaTronKernels.KAKernels) = true
 end

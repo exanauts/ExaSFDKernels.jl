@@ -1,7 +1,9 @@
 @inline function ExaTronKernels.dgpnorm(n::Int, x, xl,
                          xu, g,
-                         tx)
+                         I, J)
 
+    tx = J
+    ty = 1
     @synchronize
     res = 0.0
     inf_norm = @localmem Float64 (1,)

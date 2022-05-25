@@ -1,7 +1,9 @@
-@inline function ExaTronKernels.nrm2!(wa, A, n::Int, tx)
+@inline function ExaTronKernels.nrm2!(wa, A, n::Int, I, J)
+    tx = J
+    ty = 1
 
     v = 0.0
-    if tx <= n
+    if tx <= n && ty == 1
         @inbounds for j=1:n
             v += A[j,tx]^2
         end
@@ -33,9 +35,12 @@ end
 @inline function ExaTronKernels.dssyax(n::Int, A,
                         z,
                         q,
-                        tx)
+                        I, J)
+    tx = J
+    ty = 1
+
     v = 0.0
-    if tx <= n
+    if tx <= n && ty == 1
         @inbounds for j=1:n
             v += A[tx,j]*z[j]
         end
@@ -68,7 +73,9 @@ end
 @inline function ExaTronKernels.reorder!(n::Int, nfree::Int, B,
                           A, indfree,
                           iwa,
-                          tx)
+                          I, J)
+    tx = J
+
     #=
     if tx == 1 && ty == 1
         @inbounds for j=1:nfree

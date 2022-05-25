@@ -1,5 +1,7 @@
 # Left-looking Cholesky
-@inline function ExaTronKernels.dicf(n::Int,L,tx)
+@inline function ExaTronKernels.dicf(n::Int,L,I,J)
+    tx = J
+    ty = I
     @inbounds for j=1:n
         # Apply the pending updates.
         if tx >= j && tx <= n

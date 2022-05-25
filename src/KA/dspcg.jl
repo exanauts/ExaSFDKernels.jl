@@ -8,8 +8,9 @@
                wa1, wa2,
                wa3, wa4,
                wa5,
-               tx)
+               I, J)
 
+    tx = J
     nfree = @localmem Int (1,)
 
     zero = 0.0
@@ -17,12 +18,12 @@
 
     # Compute A*(x[1] - x[0]) and store in w.
 
-    dssyax(n, A, s, w, tx)
+    dssyax(n, A, s, w, I, J)
 
     # Compute the Cauchy point.
 
-    daxpy(n,one,s,1,x,1,tx)
-    dmid(n,x,xl,xu,tx)
+    daxpy(n,one,s,1,x,1,I,J)
+    dmid(n,x,xl,xu,I,J)
 
     # Start the main iteration loop.
     # There are at most n iterations because at each iteration
@@ -63,11 +64,11 @@
 
         # Obtain the submatrix of A for the free variables.
         # Recall that iwa allows the detection of free variables.
-        reorder!(n, nfree[1], B, A, indfree, iwa, tx)
+        reorder!(n, nfree[1], B, A, indfree, iwa, I, J)
 
         # Compute the incomplete Cholesky factorization.
         alpha = zero
-        dicfs(nfree[1], alpha, B, L, wa1, wa2, tx)
+        dicfs(nfree[1], alpha, B, L, wa1, wa2, I, J)
 
         # Compute the gradient grad q(x[k]) = g + A*(x[k] - x[0]),
         # of q at x[k] for the free variables.
@@ -81,7 +82,7 @@
             end
         end
         @synchronize
-        gfnorm = dnrm2(nfree[1],wa1,1,tx)
+        gfnorm = dnrm2(nfree[1],wa1,1,I,J)
 
         # Save the trust region subproblem in the free variables
         # to generate a direction p[k]. Store p[k] in the array w.
@@ -91,10 +92,10 @@
 
         infotr,itertr = dtrpcg(nfree[1],B,gfree,delta,L,
                                tol,stol,itermax,w,
-                               wa1,wa2,wa3,wa4,wa5,tx)
+                               wa1,wa2,wa3,wa4,wa5,I,J)
 
         iters += itertr
-        dtsol(nfree[1], L, w, tx)
+        dtsol(nfree[1], L, w, I, J)
 
         # Use a projected search to obtain the next iterate.
         # The projected search algorithm stores s[k] in w.
@@ -108,7 +109,7 @@
         end
         @synchronize
 
-        dprsrch(nfree[1],wa1,wa2,wa3,B,gfree,w,wa4,wa5,tx)
+        dprsrch(nfree[1],wa1,wa2,wa3,B,gfree,w,wa4,wa5,I,J)
 
         # Update the minimizer and the step.
         # Note that s now contains x[k+1] - x[0].
@@ -123,7 +124,7 @@
 
         # Compute A*(x[k+1] - x[0]) and store in w.
 
-        dssyax(n, A, s, w, tx)
+        dssyax(n, A, s, w, I, J)
 
         # Compute the gradient grad q(x[k+1]) = g + A*(x[k+1] - x[0])
         # of q at x[k+1] for the free variables.
@@ -135,7 +136,7 @@
         end
         @synchronize
 
-        gfnormf = dnrm2(nfree[1], gfree, 1, tx)
+        gfnormf = dnrm2(nfree[1], gfree, 1, I, J)
 
         # Convergence and termination test.
         # We terminate if the preconditioned conjugate gradient

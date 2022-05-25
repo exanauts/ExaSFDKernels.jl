@@ -94,7 +94,7 @@ Driver to run TRON on GPU. This should be called from a kernel.
         # Initialize the trust region bound.
 
         if task == 0
-            gnorm0 = dnrm2(n, g, 1, J)
+            gnorm0 = dnrm2(n, g, 1, I, J)
             delta = gnorm0
         end
 
@@ -103,13 +103,13 @@ Driver to run TRON on GPU. This should be called from a kernel.
         if search
             delta, task = dtron(n, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
                                 cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
-                                isave, dsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, J)
+                                isave, dsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, I, J)
         end
 
         # [3] NEWX: a new point was computed.
 
         if task == 3
-            gnorm_inf = dgpnorm(n, x, xl, xu, g, J)
+            gnorm_inf = dgpnorm(n, x, xl, xu, g, I, J)
 
             if gnorm_inf <= gtol
                 task = 4
@@ -220,7 +220,7 @@ end
         if search
             delta, task = dtron(n, x, xl, xu, f, g, A, frtol, fatol, fmin, cgtol,
                                 cg_itermax, delta, task, B, L, xc, s, indfree, gfree,
-                                isave, dsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, J_)
+                                isave, dsave, wa, iwa, wa1, wa2, wa3, wa4, wa5, I_, J_)
         end
 
         # [3] NEWX: a new point was computed.

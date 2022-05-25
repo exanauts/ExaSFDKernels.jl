@@ -10,8 +10,6 @@
 
     I = @index(Group, Linear)
     J = @index(Local, Linear)
-    CUDA.@cuprintln("I: ", I)
-    CUDA.@cuprintln("J: ", J)
     id_line = I + shift_lines
 
     x = @localmem Float64 (4,)
@@ -69,6 +67,15 @@
 
         status, minor_iter = ExaTronKernels.tron_kernel(n, shift_lines, 500, 200, 1e-6, scale, true, x, xl, xu,
                                          param, YffR, YffI, YftR, YftI, YttR, YttI, YtfR, YtfI, I, J)
+        # @synchronize
+        # nx = dnrm2(n,x,0)
+        # nxl = dnrm2(n,xl,0)
+        # nxu = dnrm2(n,xu,0)
+        # if J == 1
+        #     @cuprintln("[$I] x: $nx")
+        #     @cuprintln("[$I] xl: $nxl")
+        #     @cuprintln("[$I] xu: $nxu")
+        # end
 
         vi_vj_cos = x[1]*x[2]*cos(x[3] - x[4])
         vi_vj_sin = x[1]*x[2]*sin(x[3] - x[4])

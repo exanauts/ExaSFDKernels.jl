@@ -1,16 +1,10 @@
-"""
-Subroutine dgpstep
-
-This subroutine computes the gradient projection step
-
-  s = P[x + alpha*w] - x,
-
-where P is the projection on the n-dimensional interval [xl,xu].
-"""
 @inline function ExaTronKernels.dgpstep(n::Int,x,xl,
                          xu,alpha,w,
                          s,
-                         tx)
+                         I, J)
+    tx = J
+    ty = 1
+
     if tx <= n
         @inbounds begin
             # It might be better to process this using just a single thread,

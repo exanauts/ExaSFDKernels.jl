@@ -1,7 +1,9 @@
 @inline function ExaTronKernels.dtsol(n::Int, L,
                        r,
-                       tx)
+                       I, J)
     # Solve L'*x = r and store the result in r.
+
+    tx = J
 
     @inbounds for j=n:-1:1
         if tx == 1

@@ -1,4 +1,4 @@
-@inline function ExaTronKernels.dnrm2(n::Int,x,incx::Int, tx)
+@inline function ExaTronKernels.dnrm2(n::Int,x,incx::Int, I, J)
 
     @synchronize
     v = 0.0

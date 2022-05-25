@@ -1,6 +1,6 @@
 @inline function ExaTronKernels.dbreakpt(n::Int, x, xl,
                           xu, w,
-                          tx)
+                          I, J)
     zero = 0.0
     nbrpt = 0
     brptmin = zero

@@ -1,6 +1,7 @@
 @inline function ExaTronKernels.dmid(n::Int, x,
                       xl, xu,
-                      tx)
+                      I, J)
+    tx = J
 
     if tx <= n
         @inbounds x[tx] = max(xl[tx], min(x[tx], xu[tx]))

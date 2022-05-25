@@ -494,6 +494,11 @@ function admm_solve!(env::AdmmEnv, sol::SolutionOneLevel; iterlim=800, scale=1e-
             wait(copy_data_kernel(env.device, 64, mod.nvar)(mod.nvar, sol.l_prev, sol.l_curr, dependencies=Event(env.device)))
 
             tgpu = generator_kernel(mod.gen_mod, data.baseMVA, sol.u_curr, sol.v_curr, sol.l_curr, sol.rho, env.device)
+            @show norm(sol.u_curr |> Array)
+            @show norm(sol.v_curr |> Array)
+            @show norm(sol.l_curr |> Array)
+            @show norm(sol.rho |> Array)
+            @show length(sol.u_curr)
 
             # time_gen += tgpu.time
             # if env.use_polar
@@ -504,6 +509,10 @@ function admm_solve!(env::AdmmEnv, sol::SolutionOneLevel; iterlim=800, scale=1e-
                                                                 dependencies=Event(env.device)
                                                                 )
                 )
+            @show norm(sol.u_curr |> Array)
+            @show norm(sol.v_curr |> Array)
+            @show norm(sol.l_curr |> Array)
+            @show norm(sol.rho |> Array)
             # else
             #     tgpu = CUDA.@timed @cuda threads=32 blocks=nblk_br shmem=shmem_size auglag_kernel(mod.n, it, par.max_auglag, mod.line_start, scale, par.mu_max,
             #                                                                                       sol.u_curr, sol.v_curr, sol.l_curr, sol.rho,
