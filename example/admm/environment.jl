@@ -414,33 +414,10 @@ AdmmEnv(opfdata::OPFData, device::CUDADevice, rho_pq, rho_va; options...) = Admm
         opfdata, rho_pq, rho_va; device=device, options...
     )
 
-AdmmEnv(opfdata::OPFData, device::ROCDevice, rho_pq, rho_va; options...) = AdmmEnv{Float64, ROCDevice{Float64, 1}, ROCDevice{Int, 1}, ROCDevice{Float64, 2}}(
+AdmmEnv(opfdata::OPFData, device::ROCDevice, rho_pq, rho_va; options...) = AdmmEnv{Float64, ROCArray{Float64, 1}, ROCArray{Int, 1}, ROCArray{Float64, 2}}(
         opfdata, rho_pq, rho_va; device=device, options...
     )
 
-function AdmmEnv(opfdata::OPFData, device::KA.Device, rho_pq, rho_va; options...)
-    if isa(device, GPU)
-        if isa(device, CUDADevice)
-            VT = CuArray
-        elseif isa(device, ROCDevice)
-            VT = ROCArray
-        else
-            error("Unknown device.")
-        end
-    else
-        VT = Array
-    end
-    return AdmmEnv{Float64, VT{Float64, 1}, VT{Int, 1}, VT{Float64, 2}}(
-        opfdata, rho_pq, rho_va; device=device, options...
-    )
-end
-
-# function AdmmEnv(opfdata::OPFData, ::Type{VT}, rho_pq, rho_va; options...) where VT
-#     use_gpu = VT <: CuArray
-#     return AdmmEnv{Float64, VT{Float64, 1}, VT{Int, 1}, VT{Float64, 2}}(
-#         opfdata, rho_pq, rho_va; device=device, options...
-#     )
-# end
 
 # Getters / setters
 active_power_generation(env::AdmmEnv) = active_power_generation(env.model, env.solution)

@@ -440,6 +440,16 @@ function admm_solve!(env::AdmmEnv, sol::SolutionOneLevel; iterlim=800, scale=1e-
 
     it = 0
     time_gen = time_br = time_bus = 0.0
+    primres = 0.0
+    dualres = 0.0
+    eps_pri = 0.0
+    eps_dual = 0.0
+    auglag_it = 0
+    tron_it = 0
+    gpu_primres = 0.0
+    gpu_dualres = 0.0
+    gpu_eps_pri = 0.0
+    gpu_eps_dual = 0.0
 
     @time begin
     while it < iterlim
@@ -482,7 +492,7 @@ function admm_solve!(env::AdmmEnv, sol::SolutionOneLevel; iterlim=800, scale=1e-
             eps_pri = sqrt(length(sol.l_curr))*par.ABSTOL + par.RELTOL*max(norm(sol.u_curr), norm(-sol.v_curr))
             eps_dual = sqrt(length(sol.u_curr))*par.ABSTOL + par.RELTOL*norm(sol.l_curr)
 
-            (par.verbose > 0) && @printf("[CPU] %10d  %.6e  %.6e  %.6e  %.6e  %6.2f  %6.2f\n",
+            (par.verbose > 1) && @printf("[CPU] %10d  %.6e  %.6e  %.6e  %.6e  %6.2f  %6.2f\n",
                     it, primres, dualres, eps_pri, eps_dual, auglag_it, tron_it)
 
             if primres <= eps_pri && dualres <= eps_dual
@@ -540,7 +550,7 @@ function admm_solve!(env::AdmmEnv, sol::SolutionOneLevel; iterlim=800, scale=1e-
             gpu_eps_pri = sqrt(length(sol.l_curr))*par.ABSTOL + par.RELTOL*max(norm(sol.u_curr), norm(sol.v_curr))
             gpu_eps_dual = sqrt(length(sol.u_curr))*par.ABSTOL + par.RELTOL*norm(sol.l_curr)
 
-            (par.verbose > 0) && @printf("[GPU] %10d  %.6e  %.6e  %.6e  %.6e\n", it, gpu_primres, gpu_dualres, gpu_eps_pri, gpu_eps_dual)
+            (par.verbose > 1) && @printf("[GPU] %10d  %.6e  %.6e  %.6e  %.6e\n", it, gpu_primres, gpu_dualres, gpu_eps_pri, gpu_eps_dual)
 
             if gpu_primres <= gpu_eps_pri && gpu_dualres <= gpu_eps_dual
                 break
@@ -565,6 +575,13 @@ function admm_solve!(env::AdmmEnv, sol::SolutionOneLevel; iterlim=800, scale=1e-
 
     if par.verbose > 0
         rateA_nviols, rateA_maxviol, rateC_nviols, rateC_maxviol = check_linelimit_violation(data, u_curr)
+        if isa(env.device, KA.GPU)
+            @printf("[GPU] %10d  %.6e  %.6e  %.6e  %.6e\n", it, gpu_primres, gpu_dualres, gpu_eps_pri, gpu_eps_dual)
+        end
+        if isa(env.device, KA.CPU)
+            @printf("[CPU] %10d  %.6e  %.6e  %.6e  %.6e  %6.2f  %6.2f\n", it, primres, dualres, eps_pri, eps_dual, auglag_it, tron_it)
+        end
+        status = sol.status == HAS_CONVERGED ? "converged" : "not converged"
         @printf(" ** Line limit violations\n")
         @printf("RateA number of violations = %d (%d)\n", rateA_nviols, mod.nline)
         @printf("RateA maximum violation    = %.2f\n", rateA_maxviol)
@@ -578,6 +595,8 @@ function admm_solve!(env::AdmmEnv, sol::SolutionOneLevel; iterlim=800, scale=1e-
         @printf("Total     = %.2f\n", time_gen + time_br + time_bus)
 
         @printf("Objective value = %.6e\n", objval)
+        println("Solver status: $status")
+        println("Iterations: $it")
     end
     return
 end
