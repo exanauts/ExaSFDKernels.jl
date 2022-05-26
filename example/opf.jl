@@ -1,8 +1,14 @@
 using KernelAbstractions
+using AMDGPU
+using ROCKernels
 using CUDA
 using CUDAKernels
+
+# One day for Intel GPUs
+# using oneAPI
+# using OneKernels
+
 using LinearAlgebra
-using ROCKernels
 using Printf
 using PowerModels
 using LazyArtifacts
@@ -26,12 +32,18 @@ rho_pq = 10.0
 # `rho_va`: ADMM parameter for voltage and angle of type `Float64`
 rho_va = 1000.0
 # `max_iter`: maximum number of iterations of type `Int`
-max_iter = 10000
-# `use_gpu`: indicates whether to use gpu or not, of type `Bool`
-device = CUDADevice()
-# device = CPU()
+max_iter = 1000
+# Indicate which GPU device to use
+device = CPU()
+# device = CUDADevice()
+# device = ROCDevice()
+# device = OneDevice()
 # Use polar formulation for branch problems
 use_polar = true
+# verbose = 0: No output
+# verbose = 1: Final result metrics
+# verbose = 2: Iteration output
+verbose = 1
 
 env = admm_rect_gpu(
     datafile;
@@ -40,5 +52,6 @@ env = admm_rect_gpu(
     rho_va=rho_va,
     scale=1e-4,
     use_polar=use_polar,
-    device=device
+    device=device,
+    verbose=verbose
 )
