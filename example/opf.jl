@@ -25,14 +25,15 @@ include("admm/acopf_admm_gpu.jl")
 
 # `datafile`: the name of the test file of type `String`
 # here: MATPOWER case2868rte.m in ExaData project Artifact
-# datafile = joinpath(artifact"ExaData", "ExaData", "matpower", "case2868rte.m")
 datafile = joinpath(artifact"ExaData", "ExaData", "matpower", "case9.m")
+# datafile = joinpath(artifact"ExaData", "ExaData", "matpower", "case9241pegase.m")
+# datafile = joinpath(artifact"ExaData", "ExaData", "matpower", "case_ACTIVSg70k.m")
 # `rho_pq`: ADMM parameter for power flow of type `Float64`
-rho_pq = 10.0
+rho_pq = parse(Float64, ARGS[1])
 # `rho_va`: ADMM parameter for voltage and angle of type `Float64`
-rho_va = 1000.0
+rho_va = parse(Float64, ARGS[2])
 # `max_iter`: maximum number of iterations of type `Int`
-max_iter = 1000
+max_iter = parse(Int, ARGS[3])
 # Indicate which GPU device to use
 device = CPU()
 # device = CUDADevice()
@@ -44,6 +45,11 @@ use_polar = true
 # verbose = 1: Final result metrics
 # verbose = 2: Iteration output
 verbose = 1
+
+println("Running case file: $datafile with")
+println("rho_pq = $rho_pq,")
+println("rho_va = $rho_va")
+println("max_iter = $max_iter")
 
 env = admm_rect_gpu(
     datafile;
